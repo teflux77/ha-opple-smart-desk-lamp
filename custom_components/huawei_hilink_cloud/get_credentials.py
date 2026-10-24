@@ -34,12 +34,19 @@ Run this on a computer WITH A BROWSER (your PC/Mac), not necessarily the one
 hosting Home Assistant if that one has no display (NAS, headless Raspberry
 Pi, etc.) - just copy this one file to wherever you run it.
 
+On startup it asks which country/region is selected in the Huawei AI Life app
+(Me > Account > Country or Region) - this must match exactly, since it is
+what routes the token exchange to the right Huawei data center (pass
+--country-code to skip the prompt). The login page's own display language is
+auto-detected from this machine's locale (override with --ui-locale).
+
 One-time setup:
     pip install playwright
     playwright install chromium
 
 Usage:
     python3 get_credentials.py [--output ha_credentials.json] [--timeout 180]
+    python3 get_credentials.py --country-code uk   # skip the interactive prompt
     python3 get_credentials.py --debug   # also print redacted raw API responses
 """
 
@@ -49,6 +56,8 @@ import argparse
 import base64
 import hashlib
 import json
+import locale
+import os
 import secrets
 import threading
 import time
@@ -68,10 +77,14 @@ APP_VERSION = "17.0.3.320"
 REDIRECT_URI = "hms://redirect_url"
 TOKEN_URL = f"{BASE_URL}/smart-life/v2/hms-lite/token"
 USERINFO_URL = f"{BASE_URL}/smart-life/v2/hms-lite/userinfo"
-HICLOUD_BASE = "https://smarthome.hicloud.com"
-HOMES_URL = f"{HICLOUD_BASE}/userApp/v1.2.0/homes"
-DEVICES_V2_URL = f"{HICLOUD_BASE}/smart-life/v2/devices"
-DEVICES_V3_URL = f"{HICLOUD_BASE}/smart-life/v3/devices"
+# Confirmed 2026-10-24: for an EU-region account, homes/devices must be
+# fetched from the SAME regional host as the token exchange
+# (smartlife-dre.things.dbankcloud.com), not the generic/global
+# smarthome.hicloud.com the un-adapted reference project uses - the generic
+# host silently returns zero devices for this account instead of erroring.
+HOMES_URL = f"{BASE_URL}/userApp/v1.2.0/homes"
+DEVICES_V2_URL = f"{BASE_URL}/smart-life/v2/devices"
+DEVICES_V3_URL = f"{BASE_URL}/smart-life/v3/devices"
 SCOPES = (
     "openid",
     "https://www.huawei.com/auth/account/base.profile",
@@ -98,7 +111,68 @@ SENSITIVE_KEYS = {
 # ---------------------------------------------------------------------------
 
 
-def build_authorization_url() -> tuple[str, str]:
+def detect_ui_locale() -> str:
+    """Best-effort "xx-xx" guess of this machine's own language/region (e.g.
+    "fr-fr", "en-gb"), used only for the look of Huawei's login page - it has
+    no effect on which data center handles the account (see countryCode)."""
+    name: str | None = None
+    try:
+        # getdefaultlocale() is deprecated but, unlike getlocale(), it maps a
+        # Windows locale name ("French_France") to the POSIX-style tag
+        # ("fr_FR") we need - getlocale() alone would leave it unparsed there.
+        import warnings
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            name = locale.getdefaultlocale()[0]
+    except Exception:
+        name = None
+    if not name:
+        try:
+            locale.setlocale(locale.LC_ALL, "")
+            name = locale.getlocale()[0]
+        except Exception:
+            name = None
+    if not name:
+        name = os.environ.get("LANG") or os.environ.get("LC_ALL") or os.environ.get("LANGUAGE")
+    if not name or name.upper() in {"C", "POSIX"}:
+        return "en-us"
+    name = name.split(".")[0].split(":")[0].replace("_", "-").lower()
+    if "-" not in name:
+        name = f"{name}-{name}"
+    return name
+
+
+def prompt_country_code(provided: str | None) -> str:
+    """Ask which country/region is selected in the Huawei AI Life app.
+
+    This is NOT cosmetic like the UI locale above: it is what Huawei's
+    server uses to route the OAuth/token exchange to the right data center
+    (confirmed on 2026-10-23 - the wrong value makes the token exchange or
+    the homes/devices lookup silently come back empty)."""
+    if provided:
+        return _normalize_country_code(provided)
+    print()
+    print("Which country/region is selected in the Huawei AI Life app")
+    print("(Me / Account > Country or Region)? Type the ISO code exactly as shown")
+    print('there (e.g. GB, FR, DE) - it must match, or the token exchange can')
+    print("silently fail or return zero devices.")
+    raw = input("Country/region code: ").strip()
+    while not raw:
+        raw = input("Country/region code (required): ").strip()
+    return _normalize_country_code(raw)
+
+
+def _normalize_country_code(raw: str) -> str:
+    code = raw.strip().upper()
+    if code == "UK":
+        # AI Life's own country picker labels this "UK", but Huawei's API
+        # expects the ISO 3166-1 alpha-2 code, which is "GB".
+        code = "GB"
+    return code
+
+
+def build_authorization_url(country_code: str, ui_locale: str) -> tuple[str, str]:
     state = secrets.token_urlsafe(24)
     nonce = secrets.token_urlsafe(24)
     verifier = secrets.token_urlsafe(48)
@@ -108,10 +182,7 @@ def build_authorization_url() -> tuple[str, str]:
             "access_type": "offline",
             "response_type": "code",
             "client_id": APP_ID,
-            # Huawei's own app hardcodes zh-cn here regardless of the
-            # account's language/region (confirmed by decompiling the APK) -
-            # it only affects the login page's own chrome, not your account.
-            "ui_locales": "zh-cn",
+            "ui_locales": ui_locale,
             "redirect_uri": REDIRECT_URI,
             "state": state,
             "scope": " ".join(SCOPES),
@@ -119,10 +190,7 @@ def build_authorization_url() -> tuple[str, str]:
             "nonce": nonce,
             "include_granted_scopes": "true",
             "uuid": str(uuid.uuid4()),
-            # Your account's actual region (confirmed United Kingdom on
-            # 2026-10-23) - this one DOES matter, it is what routes the
-            # token exchange to the right Huawei data center.
-            "countryCode": "GB",
+            "countryCode": country_code,
             "cVersion": "HwID_6.10.0.300",
             "code_challenge": challenge.decode(),
             "code_challenge_method": "S256",
@@ -216,16 +284,46 @@ def capture_callback_with_playwright(authorization_url: str, *, timeout_seconds:
 # ---------------------------------------------------------------------------
 
 
-def _headers(access_token: str | None = None, extra: dict[str, str] | None = None) -> dict[str, str]:
+# Best-effort country -> "x-language" header mapping. The reference app
+# sends a BCP-47-ish tag that matches the ACCOUNT's own configured language,
+# not a fixed "zh-CN" - on 2026-10-23 forcing this to the account's real
+# region (then "en-GB") was what made the homes/devices lookup return
+# results, after countryCode alone wasn't enough. Extend this table as more
+# regions are confirmed; unknown codes fall back to "en-<COUNTRY>".
+LANGUAGE_BY_COUNTRY = {
+    "CN": "zh-CN",
+    "GB": "en-GB",
+    "US": "en-US",
+    "FR": "fr-FR",
+    "DE": "de-DE",
+    "ES": "es-ES",
+    "IT": "it-IT",
+    "NL": "nl-NL",
+    "BE": "fr-BE",
+    "LU": "fr-LU",
+    "PT": "pt-PT",
+    "IE": "en-IE",
+    "CH": "de-CH",
+}
+
+
+def _language_header(country_code: str) -> str:
+    return LANGUAGE_BY_COUNTRY.get(country_code.upper(), f"en-{country_code.upper()}")
+
+
+def _headers(
+    access_token: str | None = None,
+    extra: dict[str, str] | None = None,
+    *,
+    language: str = "zh-CN",
+) -> dict[str, str]:
     headers = {
         "Accept": "application/json",
         "Content-Type": "application/json;charset=UTF-8",
         "User-Agent": f"HuaweiSmartHome/{APP_VERSION}",
         "x-appId": APP_ID,
         "x-appVersion": APP_VERSION,
-        # Hardcoded by Huawei's own app regardless of account locale
-        # (confirmed by decompiling the APK) - not a bug, don't "fix" it.
-        "x-language": "zh-CN",
+        "x-language": language,
         "x-ori-app-name": "com.huawei.smarthome",
         "x-phoneOs": "Android",
         "x-requestId": str(uuid.uuid4()),
@@ -237,9 +335,19 @@ def _headers(access_token: str | None = None, extra: dict[str, str] | None = Non
     return headers
 
 
-def _call(method: str, url: str, *, body: Any = None, access_token: str | None = None, extra_headers: dict[str, str] | None = None) -> Any:
+def _call(
+    method: str,
+    url: str,
+    *,
+    body: Any = None,
+    access_token: str | None = None,
+    extra_headers: dict[str, str] | None = None,
+    language: str = "zh-CN",
+) -> Any:
     data = None if body is None else json.dumps(body, ensure_ascii=False).encode()
-    request = urllib.request.Request(url, data=data, headers=_headers(access_token, extra_headers), method=method)
+    request = urllib.request.Request(
+        url, data=data, headers=_headers(access_token, extra_headers, language=language), method=method
+    )
     try:
         with urllib.request.urlopen(request, timeout=20) as response:
             raw = response.read()
@@ -321,15 +429,23 @@ def _collect_device_records(value: Any) -> list[dict[str, str]]:
     return list(records.values())
 
 
-def fetch_credentials(one_time_code: str, *, debug: bool) -> dict[str, Any]:
-    token_response = _call("POST", TOKEN_URL, body={"appId": APP_ID, "code": urllib.parse.quote(one_time_code, safe="")})
+def fetch_credentials(one_time_code: str, *, debug: bool, country_code: str) -> dict[str, Any]:
+    language = _language_header(country_code)
+    token_response = _call(
+        "POST",
+        TOKEN_URL,
+        body={"appId": APP_ID, "code": urllib.parse.quote(one_time_code, safe="")},
+        language=language,
+    )
     access_token = token_response.get("access_token")
     refresh_token = token_response.get("refresh_token")
     expires_in = float(token_response.get("expires_in", 3600))
     if not access_token or not refresh_token:
         raise RuntimeError("incomplete token response")
 
-    userinfo = _call("POST", USERINFO_URL, body={"access_token": access_token}, access_token=access_token)
+    userinfo = _call(
+        "POST", USERINFO_URL, body={"access_token": access_token}, access_token=access_token, language=language
+    )
     user_id = userinfo.get("userId") or userinfo.get("openId")
     if not user_id:
         ids = _collect_values(userinfo, {"userId", "openId"})
@@ -337,16 +453,22 @@ def fetch_credentials(one_time_code: str, *, debug: bool) -> dict[str, Any]:
     if not user_id:
         raise RuntimeError("no userId in the userinfo response")
 
-    homes_response = _call("GET", HOMES_URL, access_token=access_token)
+    homes_response = _call("GET", HOMES_URL, access_token=access_token, language=language)
     home_ids = _collect_values(homes_response, {"homeId"})
 
-    diagnostics: list[str] = [f"homes: {len(home_ids)} found -> {home_ids}"]
+    diagnostics: list[str] = [f"x-language used: {language}", f"homes: {len(home_ids)} found -> {home_ids}"]
     if debug:
         diagnostics.append("raw homes response: " + json.dumps(_redact(homes_response), ensure_ascii=False))
 
     all_devices: list[dict[str, str]] = []
     for home_id in home_ids:
-        response = _call("GET", DEVICES_V2_URL, access_token=access_token, extra_headers={"x-homeId": home_id})
+        response = _call(
+            "GET",
+            DEVICES_V2_URL,
+            access_token=access_token,
+            extra_headers={"x-homeId": home_id},
+            language=language,
+        )
         found = _collect_device_records(response)
         diagnostics.append(f"devices v2 for home {home_id}: {len(found)} found")
         if debug:
@@ -354,7 +476,7 @@ def fetch_credentials(one_time_code: str, *, debug: bool) -> dict[str, Any]:
         all_devices.extend(found)
     if home_ids:
         query = urllib.parse.urlencode({"homeId": ",".join(home_ids)})
-        response = _call("GET", f"{DEVICES_V3_URL}?{query}", access_token=access_token)
+        response = _call("GET", f"{DEVICES_V3_URL}?{query}", access_token=access_token, language=language)
         found = _collect_device_records(response)
         diagnostics.append(f"devices v3 (all homes): {len(found)} found")
         if debug:
@@ -374,8 +496,8 @@ def fetch_credentials(one_time_code: str, *, debug: bool) -> dict[str, Any]:
     elif not devices_by_id:
         diagnostics.append(
             "Home(s) found but no device inside them - the lamps may be paired to a different home, "
-            "or the device listing needs a region-specific host this script doesn't know about yet. "
-            "Re-run with --debug and share the (redacted) output."
+            "or not currently online in the Huawei app. Re-run with --debug and share the (redacted) "
+            "output."
         )
 
     return {
@@ -534,6 +656,19 @@ def main() -> None:
         "--server-timeout", type=int, default=10, help="minutes the local result page stays up (default 10)"
     )
     parser.add_argument(
+        "--country-code",
+        default=None,
+        help=(
+            "country/region selected in the Huawei AI Life app (e.g. uk, fr, de) - "
+            "skips the interactive prompt"
+        ),
+    )
+    parser.add_argument(
+        "--ui-locale",
+        default=None,
+        help="login page language as xx-xx (e.g. fr-fr) - default: auto-detected from this machine",
+    )
+    parser.add_argument(
         "--debug", action="store_true", help="also print redacted raw API responses, for troubleshooting"
     )
     parser.add_argument(
@@ -541,12 +676,16 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    authorization_url, expected_state = build_authorization_url()
+    country_code = prompt_country_code(args.country_code)
+    ui_locale = args.ui_locale or detect_ui_locale()
+    print(f"Using country/region: {country_code} - login page language: {ui_locale}")
+
+    authorization_url, expected_state = build_authorization_url(country_code, ui_locale)
     callback_url = capture_callback_with_playwright(authorization_url, timeout_seconds=args.timeout)
     one_time_code = authorization_code_from_callback(callback_url, expected_state)
 
     print("Code captured, finishing the exchange...")
-    result = fetch_credentials(one_time_code, debug=args.debug)
+    result = fetch_credentials(one_time_code, debug=args.debug, country_code=country_code)
     home_count = result.pop("_home_count")
     expires_in = result.pop("_expires_in")
     diagnostics = result.pop("_diagnostics")

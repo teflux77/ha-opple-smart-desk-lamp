@@ -36,17 +36,25 @@ are kept in English; only `translations/fr.json` stays French as a secondary loc
   `devices` came back empty — that was a real bug: valid JSON with zero devices was
   reported as a parsing error. It now creates the entry with zero light entities and
   logs a warning instead, so setup isn't blocked while debugging device discovery.
-- ⚠️ Open issue (2026-10-24, live test by Stéphane): `get_credentials.py` ran
-  successfully (token exchange worked, pasted JSON was syntactically valid) but
-  returned `"devices": []`. Not yet root-caused. `get_credentials.py` now prints
-  non-sensitive diagnostics (home count/ids, per-endpoint device counts, `--debug` for
-  full redacted raw responses) specifically to narrow this down on the next run. Likely
-  suspects, not yet confirmed: the homes/devices host
-  (`https://smarthome.hicloud.com`, generic/global — confirmed correct by APK
-  decompilation, unlike the token-exchange host which genuinely is
-  region-specific) might still need a region-aware variant for this account's data
-  residency; or the account that logged in in the browser didn't match the one the
-  lamps are paired to.
+- ✅ `get_credentials.py` no longer hardcodes `countryCode=GB` or `ui_locales=zh-cn`:
+  it now prompts interactively for the country/region shown in the AI Life app (must
+  match exactly - this is what routes the token exchange to the right data center,
+  confirmed on 2026-10-23; "uk" in the app's own picker maps to ISO `GB`), and
+  auto-detects the login page's display language from the machine's own locale
+  (`--country-code`/`--ui-locale` to override either without the prompt).
+- ✅ Root cause found (2026-10-24) for the `"devices": []` issue: the `x-language`
+  header sent on every API call (token/userinfo/homes/devices) was hardcoded to
+  `zh-CN` in `get_credentials.py`. That header is NOT purely cosmetic for the
+  homes/devices lookup the way `ui_locales` is for the login page - it needs to
+  roughly match the account's own region, same conclusion reached on 2026-10-23 when
+  forcing it to `en-GB` (alongside `countryCode=GB`) was what made `credential_web.py`
+  return results. `get_credentials.py` now derives `x-language` from the
+  interactively-prompted country code via a small `LANGUAGE_BY_COUNTRY` table (GB ->
+  en-GB, falls back to `en-<COUNTRY>` for anything not in the table) and threads it
+  through every call; diagnostics print which value was used. `cloud_client.py`
+  (ongoing MQTT token refresh, used after HA setup) still hardcodes `zh-CN` -
+  deliberately NOT touched, since that path is separately validated working as-is;
+  revisit only if refresh ever starts failing for a non-CN account.
 - ⏳ Not yet tested end-to-end in a full HA install (fresh install + adding the
   integration from scratch, with the new screen text).
 - 💭 Discussed but not done: extract the auth logic (token exchange, refresh,
