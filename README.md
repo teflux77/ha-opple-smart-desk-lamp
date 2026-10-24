@@ -1,14 +1,21 @@
 # Huawei HiLink Opple Light (cloud) — Home Assistant integration
 
 Unofficial integration to control an **Opple Smart Desk Lamp** (Huawei HiLink) from
-Home Assistant, via Huawei's cloud MQTT bridge (`smartlife-dre.things.dbankcloud.com`).
+Home Assistant, via Huawei's cloud MQTT bridge (`smartlife-dre.things.dbankcloud.com`),
+which is **fully live and actively used by this integration** — nothing on Huawei's side
+is down.
 
-Personal reverse-engineering project: these lamps' local HiLink hub was abandoned by
-Huawei, so the cloud path (Huawei account + MQTT) is the only one still working.
+Personal reverse-engineering project: what's actually dead is the lamp's **local**
+HiLink hub (no local control support), and the official AI Life app's handling of these
+older lamps got shaky over time. The **cloud account + MQTT backend works fine** — this
+integration talks to it the same way the official app does, just reverse-engineered
+instead of licensed.
 
 ## ⚠️ Status
 
-- Real-time control (on/off, brightness, color temperature): validated on a real lamp.
+- Real-time control (on/off, brightness, color temperature, backlight/side-light
+  switch, night light switch, lighting-mode select): validated on a real lamp, over
+  the live cloud MQTT bridge.
 - Automatic token refresh (`refresh_token`): validated.
 - Automatic credential retrieval (`account` + `devices`) via `get_credentials.py`
   (shipped inside the integration's own folder, its exact path is shown on the

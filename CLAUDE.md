@@ -1,10 +1,11 @@
 # Huawei HiLink Opple Light (cloud) — project context
 
 Unofficial Home Assistant integration to control an **Opple Smart Desk Lamp** desk
-lamp via Huawei's cloud MQTT bridge (these lamps' local HiLink hub was abandoned by
-Huawei; only the cloud path via Huawei account + MQTT still works). Reverse-engineered
-from the official **Huawei AI Life / Smart Life 17.0.3.320** Android app (APK
-decompiled with jadx, traffic captured via PCAPdroid + DevTools HAR export).
+lamp via Huawei's cloud MQTT bridge — that cloud backend is fully live and is exactly
+what this integration drives; what's actually dead is the lamp's **local** HiLink hub
+(no local control support). Reverse-engineered from the official **Huawei AI Life /
+Smart Life 17.0.3.320** Android app (APK decompiled with jadx, traffic captured via
+PCAPdroid + DevTools HAR export).
 
 Public GitHub repo: `teflux77/ha-opple-smart-desk-lamp`.
 
