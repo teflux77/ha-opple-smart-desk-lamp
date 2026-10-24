@@ -353,43 +353,56 @@ class OppleLampCard extends HTMLElement {
             }
             /* A thick, filled, pill-shaped horizontal bar - the same idea
                as the default dashboard light tiles' own slider, just laid
-               out horizontally instead of vertically. The fill itself
+               out horizontally instead of vertically. Two layers: ".slider-
+               track" is the big rounded pill that carries the fill color
                (brightness: accent color up to the current value; color
-               temperature: the fixed warm<->cool gradient) is painted as
-               the element's own background, set per-slider in JS so it
-               tracks the live value while dragging; these rules only
-               reset the native chrome out of the way and size the track. */
+               temperature: the fixed warm<->cool gradient) and the
+               horizontal padding, and the actual <input type=range> sits
+               inside it at full height/width of the PADDED area - so the
+               native thumb can only ever travel within that inset region
+               and never visually pokes past the rounded ends, in any
+               browser. The fill itself is set per-slider in JS on the
+               wrapper so it tracks the live value while dragging. */
+            .slider-track {
+              height: 60px;
+              border-radius: 30px;
+              padding: 0 16px;
+              box-sizing: border-box;
+              background: var(--divider-color, #3a3a3c);
+              display: flex;
+              align-items: center;
+            }
+            .slider-track.warm-cool {
+              background: linear-gradient(to right, #ffb454, #fff4e0, #cfe8ff);
+            }
             input[type="range"] {
               -webkit-appearance: none;
               -moz-appearance: none;
               appearance: none;
               width: 100%;
-              height: 40px;
-              border-radius: 20px;
+              height: 100%;
+              background: transparent;
               outline: none;
               cursor: pointer;
             }
             input[type="range"]::-webkit-slider-runnable-track {
-              height: 40px;
-              border-radius: 20px;
+              height: 100%;
               background: transparent;
             }
             input[type="range"]::-moz-range-track {
-              height: 40px;
-              border-radius: 20px;
+              height: 100%;
               background: transparent;
               border: none;
             }
             input[type="range"]::-moz-range-progress {
-              height: 40px;
-              border-radius: 20px;
+              height: 100%;
               background: transparent;
             }
             input[type="range"]::-webkit-slider-thumb {
               -webkit-appearance: none;
               width: 4px;
-              height: 26px;
-              margin-top: 7px;
+              height: 44px;
+              margin-top: 8px;
               border-radius: 2px;
               background: rgba(255, 255, 255, 0.9);
               box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.15);
@@ -397,15 +410,12 @@ class OppleLampCard extends HTMLElement {
             }
             input[type="range"]::-moz-range-thumb {
               width: 4px;
-              height: 26px;
+              height: 44px;
               border: none;
               border-radius: 2px;
               background: rgba(255, 255, 255, 0.9);
               box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.15);
               cursor: pointer;
-            }
-            input[type="range"].warm-cool {
-              background: linear-gradient(to right, #ffb454, #fff4e0, #cfe8ff) !important;
             }
             .toggle-row {
               display: flex;
@@ -441,14 +451,18 @@ class OppleLampCard extends HTMLElement {
               <span>Brightness</span>
               <span class="brightness-value"></span>
             </div>
-            <input type="range" min="1" max="100" step="1" class="brightness-slider" />
+            <div class="slider-track">
+              <input type="range" min="1" max="100" step="1" class="brightness-slider" />
+            </div>
           </div>
           <div class="row-card cct-row" style="display:none">
             <div class="brightness-label">
               <span>Color temperature</span>
               <span class="cct-value"></span>
             </div>
-            <input type="range" step="50" class="cct-slider warm-cool" />
+            <div class="slider-track warm-cool">
+              <input type="range" step="50" class="cct-slider" />
+            </div>
           </div>
           <div class="row-card extra-row" style="display:none"></div>
         </dialog>
@@ -654,16 +668,18 @@ class OppleLampCard extends HTMLElement {
 
   _paintSliderFill(slider) {
     // Paints the "filled up to the current value" look (accent color on
-    // the left portion, muted track on the right) directly as the
-    // element's own background - a plain CSS track/thumb reset can't do a
-    // value-based fill on its own. Skip the color-temperature slider: its
-    // whole track is a fixed warm<->cool gradient (the range itself, not a
-    // fill level), set once in CSS via the .warm-cool class.
-    if (slider.classList.contains("warm-cool")) return;
+    // the left portion, muted track on the right) on the surrounding
+    // ".slider-track" wrapper, not the <input> itself - see the big CSS
+    // comment above the .slider-track rule for why. Skip the color-
+    // temperature slider: its wrapper carries a fixed warm<->cool gradient
+    // (the range itself, not a fill level) via the wrapper's own
+    // ".warm-cool" class, set once in CSS.
+    const track = slider.closest(".slider-track");
+    if (!track || track.classList.contains("warm-cool")) return;
     const min = Number(slider.min) || 0;
     const max = Number(slider.max) || 100;
     const pct = ((Number(slider.value) - min) / (max - min || 1)) * 100;
-    slider.style.background =
+    track.style.background =
       `linear-gradient(to right, var(--primary-color, #3a7bd5) ${pct}%, ` +
       `var(--divider-color, #3a3a3c) ${pct}%)`;
   }
