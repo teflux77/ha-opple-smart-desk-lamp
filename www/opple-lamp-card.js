@@ -190,10 +190,15 @@ class OppleLampCard extends HTMLElement {
           background: var(--ha-dialog-surface-background, var(--mdc-theme-surface, var(--card-background-color, #1c1c1e)));
           color: var(--primary-text-color, #e1e1e1);
           border: none;
+          outline: none;
           border-radius: var(--ha-dialog-border-radius, 28px);
           box-shadow: var(--ha-dialog-box-shadow, 0 11px 15px -7px rgba(0, 0, 0, 0.2), 0 24px 38px 3px rgba(0, 0, 0, 0.14), 0 9px 46px 8px rgba(0, 0, 0, 0.12));
           padding: 16px 16px 20px;
           box-sizing: border-box;
+        }
+        dialog.dialog:focus,
+        dialog.dialog:focus-visible {
+          outline: none;
         }
         dialog.dialog::backdrop {
           background: rgba(0, 0, 0, 0.32);
