@@ -199,10 +199,19 @@ class OppleLampCard extends HTMLElement {
                for the same reason: that ancestor no longer exists once the
                dialog is detached.) */
             dialog.dialog {
-              margin: auto;
-              width: 100%;
+              /* Positioned explicitly instead of relying on the UA's
+                 default "centered in viewport" behavior for <dialog> -
+                 anchored a little below the top edge and tall, matching
+                 how HA's own more-info dialog sits (near the top, using
+                 most of the viewport height) rather than dead center. */
+              position: fixed;
+              top: 5vh;
+              left: 50%;
+              transform: translateX(-50%);
+              margin: 0;
+              width: calc(100% - 32px);
               max-width: 360px;
-              max-height: 90vh;
+              max-height: 88vh;
               overflow-y: auto;
               background: var(--ha-dialog-surface-background, var(--mdc-theme-surface, var(--card-background-color, #1c1c1e)));
               color: var(--primary-text-color, #e1e1e1);
@@ -210,7 +219,7 @@ class OppleLampCard extends HTMLElement {
               outline: none;
               border-radius: var(--ha-dialog-border-radius, 28px);
               box-shadow: var(--ha-dialog-box-shadow, 0 11px 15px -7px rgba(0, 0, 0, 0.2), 0 24px 38px 3px rgba(0, 0, 0, 0.14), 0 9px 46px 8px rgba(0, 0, 0, 0.12));
-              padding: 20px 20px 24px;
+              padding: 22px 20px 26px;
               box-sizing: border-box;
               font-family: var(--paper-font-body1_-_font-family, inherit);
             }
@@ -285,8 +294,8 @@ class OppleLampCard extends HTMLElement {
             .row-card {
               background: var(--secondary-background-color, #2c2c2e);
               border-radius: 16px;
-              padding: 14px 16px;
-              margin-bottom: 10px;
+              padding: 16px 18px;
+              margin-bottom: 12px;
             }
             .status-row {
               display: flex;
@@ -342,24 +351,61 @@ class OppleLampCard extends HTMLElement {
               color: var(--secondary-text-color, #b5b5b7);
               margin-bottom: 8px;
             }
+            /* A thick, filled, pill-shaped horizontal bar - the same idea
+               as the default dashboard light tiles' own slider, just laid
+               out horizontally instead of vertically. The fill itself
+               (brightness: accent color up to the current value; color
+               temperature: the fixed warm<->cool gradient) is painted as
+               the element's own background, set per-slider in JS so it
+               tracks the live value while dragging; these rules only
+               reset the native chrome out of the way and size the track. */
             input[type="range"] {
               -webkit-appearance: none;
+              -moz-appearance: none;
+              appearance: none;
               width: 100%;
-              height: 4px;
-              border-radius: 2px;
-              background: var(--divider-color, #3a3a3c);
+              height: 40px;
+              border-radius: 20px;
               outline: none;
+              cursor: pointer;
+            }
+            input[type="range"]::-webkit-slider-runnable-track {
+              height: 40px;
+              border-radius: 20px;
+              background: transparent;
+            }
+            input[type="range"]::-moz-range-track {
+              height: 40px;
+              border-radius: 20px;
+              background: transparent;
+              border: none;
+            }
+            input[type="range"]::-moz-range-progress {
+              height: 40px;
+              border-radius: 20px;
+              background: transparent;
             }
             input[type="range"]::-webkit-slider-thumb {
               -webkit-appearance: none;
-              width: 20px;
-              height: 20px;
-              border-radius: 50%;
-              background: var(--primary-color, #f2f2f2);
+              width: 4px;
+              height: 26px;
+              margin-top: 7px;
+              border-radius: 2px;
+              background: rgba(255, 255, 255, 0.9);
+              box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.15);
+              cursor: pointer;
+            }
+            input[type="range"]::-moz-range-thumb {
+              width: 4px;
+              height: 26px;
+              border: none;
+              border-radius: 2px;
+              background: rgba(255, 255, 255, 0.9);
+              box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.15);
               cursor: pointer;
             }
             input[type="range"].warm-cool {
-              background: linear-gradient(to right, #ffb454, #fff4e0, #cfe8ff);
+              background: linear-gradient(to right, #ffb454, #fff4e0, #cfe8ff) !important;
             }
             .toggle-row {
               display: flex;
@@ -447,6 +493,7 @@ class OppleLampCard extends HTMLElement {
     );
     dialogEl.querySelector(".brightness-slider").addEventListener("input", (e) => {
       dialogEl.querySelector(".brightness-value").textContent = `${e.target.value}%`;
+      this._paintSliderFill(e.target);
     });
     dialogEl.querySelector(".cct-slider").addEventListener("change", (e) =>
       this._setColorTemp(Number(e.target.value))
@@ -521,6 +568,7 @@ class OppleLampCard extends HTMLElement {
       if (document.activeElement !== slider) {
         slider.value = pct;
       }
+      this._paintSliderFill(slider);
       dialogEl.querySelector(".brightness-value").textContent = known ? `${pct}%` : "—";
     } else {
       brightnessRow.style.display = "none";
@@ -602,6 +650,22 @@ class OppleLampCard extends HTMLElement {
     } else {
       extraRow.style.display = "none";
     }
+  }
+
+  _paintSliderFill(slider) {
+    // Paints the "filled up to the current value" look (accent color on
+    // the left portion, muted track on the right) directly as the
+    // element's own background - a plain CSS track/thumb reset can't do a
+    // value-based fill on its own. Skip the color-temperature slider: its
+    // whole track is a fixed warm<->cool gradient (the range itself, not a
+    // fill level), set once in CSS via the .warm-cool class.
+    if (slider.classList.contains("warm-cool")) return;
+    const min = Number(slider.min) || 0;
+    const max = Number(slider.max) || 100;
+    const pct = ((Number(slider.value) - min) / (max - min || 1)) * 100;
+    slider.style.background =
+      `linear-gradient(to right, var(--primary-color, #3a7bd5) ${pct}%, ` +
+      `var(--divider-color, #3a3a3c) ${pct}%)`;
   }
 
   _areaName(hass, entityId) {
