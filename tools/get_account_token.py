@@ -15,7 +15,6 @@ callback hms://).
 
 import argparse
 import base64
-import getpass
 import hashlib
 import json
 import secrets
@@ -122,11 +121,16 @@ def main():
         url, expected_state = build_authorization_url()
         print("Ouvre cette URL dans une fenêtre privée et autorise sur le domaine Huawei :")
         print(url)
-        prompt = "Colle l'URL finale hms://redirect_url?... (masqué) : "
+        prompt = "Colle l'URL finale hms://redirect_url?... : "
     else:
-        prompt = "Code d'autorisation ou URL hms://redirect_url (masqué) : "
+        prompt = "Code d'autorisation ou URL hms://redirect_url : "
 
-    raw_input_value = getpass.getpass(prompt)
+    # input() et non getpass.getpass() : le champ masqué de getpass casse le
+    # copier-coller sur certains terminaux Windows (PowerShell/ConHost). Le
+    # code reste visible un instant à l'écran, mais il est à usage unique,
+    # consommé immédiatement ci-dessous, et jamais écrit dans un fichier ni
+    # journalisé.
+    raw_input_value = input(prompt)
     one_time_code = authorization_code_from_input(raw_input_value, expected_state)
 
     token_response = fetch_token(one_time_code)
