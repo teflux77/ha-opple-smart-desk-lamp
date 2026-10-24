@@ -1,66 +1,82 @@
-# Huawei HiLink Opple Light (cloud) — contexte projet
+# Huawei HiLink Opple Light (cloud) — project context
 
-Intégration Home Assistant non officielle pour piloter une lampe de bureau
-**Opple Smart Desk Lamp** via le pont cloud MQTT de Huawei (le hub HiLink
-local de ces lampes a été abandonné par Huawei ; seul le chemin cloud via
-compte Huawei + MQTT reste fonctionnel). Reverse engineering de l'appli
-Android officielle **Huawei AI Life / Smart Life 17.0.3.320** (APK décompilé
-avec jadx, trafic capturé via PCAPdroid + export HAR DevTools).
+Unofficial Home Assistant integration to control an **Opple Smart Desk Lamp** desk
+lamp via Huawei's cloud MQTT bridge (these lamps' local HiLink hub was abandoned by
+Huawei; only the cloud path via Huawei account + MQTT still works). Reverse-engineered
+from the official **Huawei AI Life / Smart Life 17.0.3.320** Android app (APK
+decompiled with jadx, traffic captured via PCAPdroid + DevTools HAR export).
 
-Dépôt GitHub public : `teflux77/ha-opple-smart-desk-lamp`.
+Public GitHub repo: `teflux77/ha-opple-smart-desk-lamp`.
 
-## Statut actuel (2026-10-24)
+Working language: English (code comments, UI strings, docs). This file and the repo
+are kept in English; only `translations/fr.json` stays French as a secondary locale.
 
-- ✅ Pilotage temps réel (on/off, luminosité, température de couleur) validé
-  sur une lampe réelle via MQTT.
-- ✅ Rafraîchissement automatique du token (`refresh_token`) validé.
-- ✅ Récupération automatique des identifiants (`tools/auto_authorize.py`,
-  Playwright) validée : capture le code OAuth sans copier-coller manuel,
-  enchaîne token → userinfo → homes → devices, écrit le JSON prêt pour HA.
-- ✅ Décision prise (2026-10-24) : le script d'identifiants (renommé
-  `get_credentials.py`) vit **à l'intérieur** de
-  `custom_components/huawei_hilink_cloud/` pour être livré automatiquement
-  par HACS. L'écran "Ajouter l'intégration" (`config_flow.py` +
-  `strings.json`/`translations/`) affiche directement le chemin exact et la
-  marche à suivre — personne n'a besoin de revenir sur GitHub ni de
-  connaître le reverse engineering. Alternative "tout dans HA, zéro script
-  externe" explicitement écartée : embarquer un moteur de navigateur dans
-  une intégration HACS casserait sur Home Assistant OS (pas de libs système
-  installables). Voir la section "Pourquoi pas directement dans Home
-  Assistant" du README pour l'explication complète.
-- ⏳ Pas encore testé en conditions réelles dans une install HA complète
-  (install fraîche + ajout d'intégration de bout en bout, avec le nouveau
-  texte d'écran).
-- 💭 Discuté mais pas fait : extraire la logique d'auth (échange de token,
-  refresh, homes/devices) dans un module séparé `huawei_cloud_auth/`
-  réutilisable par de futures intégrations d'autres appareils Huawei cloud
-  (pas seulement les lampes Opple).
+## Current status (2026-10-24)
+
+- ✅ Real-time control (on/off, brightness, color temperature) validated on a real lamp
+  via MQTT.
+- ✅ Automatic token refresh (`refresh_token`) validated.
+- ✅ Automatic credential retrieval (`tools/auto_authorize.py`,
+  Playwright) validated: captures the OAuth code without manual copy/paste, chains
+  token → userinfo → homes → devices, writes the JSON ready for HA.
+- ✅ Decision made (2026-10-24): the credential script (renamed
+  `get_credentials.py`) lives **inside**
+  `custom_components/huawei_hilink_cloud/` so HACS ships it automatically. The
+  "Add integration" screen (`config_flow.py` + `strings.json`/`translations/`) shows
+  the exact path and what to do — nobody needs to go back to GitHub or know anything
+  about the reverse engineering. The "everything inside HA, zero external script"
+  alternative was explicitly ruled out: bundling a browser engine inside a
+  HACS-installed integration would break on Home Assistant OS (no installable system
+  libraries). See the README's "Why not do this directly inside Home Assistant?"
+  section for the full explanation.
+- ✅ `get_credentials.py` now opens a local, loopback-only ("127.0.0.1") result page
+  with a "Copy JSON" button (mirroring the reference project's `credential_web.py`
+  workflow) instead of only writing a file — a JSON file is still written as a backup.
+- ✅ `config_flow.py` no longer rejects a pasted JSON as "invalid" just because
+  `devices` came back empty — that was a real bug: valid JSON with zero devices was
+  reported as a parsing error. It now creates the entry with zero light entities and
+  logs a warning instead, so setup isn't blocked while debugging device discovery.
+- ⚠️ Open issue (2026-10-24, live test by Stéphane): `get_credentials.py` ran
+  successfully (token exchange worked, pasted JSON was syntactically valid) but
+  returned `"devices": []`. Not yet root-caused. `get_credentials.py` now prints
+  non-sensitive diagnostics (home count/ids, per-endpoint device counts, `--debug` for
+  full redacted raw responses) specifically to narrow this down on the next run. Likely
+  suspects, not yet confirmed: the homes/devices host
+  (`https://smarthome.hicloud.com`, generic/global — confirmed correct by APK
+  decompilation, unlike the token-exchange host which genuinely is
+  region-specific) might still need a region-aware variant for this account's data
+  residency; or the account that logged in in the browser didn't match the one the
+  lamps are paired to.
+- ⏳ Not yet tested end-to-end in a full HA install (fresh install + adding the
+  integration from scratch, with the new screen text).
+- 💭 Discussed but not done: extract the auth logic (token exchange, refresh,
+  homes/devices) into a separate `huawei_cloud_auth/` module reusable by future
+  integrations for other Huawei cloud devices (not just Opple lamps).
 
 ## Architecture
 
 ```
 custom_components/huawei_hilink_cloud/
-  __init__.py       setup/unload de l'entry, instancie HuaweiCloudMqttClient
-  cloud_client.py    cœur framework-agnostic : refresh token OAuth,
-                      connexion MQTT/TLS persistante, envoi de commandes,
-                      dispatch des messages notify (ACK + deviceDataChanged)
-  config_flow.py     flow "coller le JSON" en une étape (pas d'OAuth natif
-                      HA — voir section "Pourquoi pas d'OAuth natif HA" ci-dessous)
-  const.py           constantes du domaine, services MQTT (switch/brightness/cct/...)
-  light.py           entité light HA, poussée en temps réel (should_poll=False)
+  __init__.py       entry setup/unload, instantiates HuaweiCloudMqttClient
+  cloud_client.py    framework-agnostic core: OAuth token refresh,
+                      persistent MQTT/TLS connection, sending commands,
+                      dispatching notify messages (ACK + deviceDataChanged)
+  config_flow.py     single-step "paste the JSON" flow (no native HA OAuth -
+                      see "Why not native HA OAuth" below)
+  const.py           domain constants, MQTT services (switch/brightness/cct/...)
+  light.py           HA light entity, pushed in real time (should_poll=False)
+  get_credentials.py LOCAL script (user's PC, not run inside HA): captures the
+                      OAuth code via a driven Chromium (Playwright) and opens a
+                      local result page with the {"account": {...}, "devices": [...]}
+                      JSON to paste into the HA configuration form
   manifest.json
-tools/
-  auto_authorize.py  script LOCAL (PC de l'utilisateur, pas dans HA) : capture
-                      le code OAuth via Chromium piloté (Playwright) et produit
-                      le JSON {"account": {...}, "devices": [...]} à coller
-                      dans le formulaire de configuration HA
 ```
 
-## Endpoints Huawei confirmés (rétro-ingénierie APK, 2026-10-24)
+## Confirmed Huawei endpoints (APK reverse engineering, 2026-10-24)
 
-Tous sur `https://smartlife-dre.things.dbankcloud.com` sauf mention contraire.
-En-têtes obligatoires sur CHAQUE appel ci-dessous (un appel sans ces en-têtes
-est rejeté avant même la validation du corps) :
+All on `https://smartlife-dre.things.dbankcloud.com` unless noted otherwise.
+Required headers on EVERY call below (a call missing these headers is rejected
+before the body is even validated):
 
 ```
 Accept: application/json
@@ -71,75 +87,78 @@ x-appVersion: 17.0.3.320
 x-language: zh-CN
 x-ori-app-name: com.huawei.smarthome
 x-phoneOs: Android
-x-requestId: <uuid frais à chaque appel>
+x-requestId: <fresh uuid per call>
 ```
 
-- `POST /smart-life/v2/hms-lite/token` — échange code→tokens.
-  Corps : `{"appId": APP_ID, "code": urllib.parse.quote(one_time_code)}`
-  (le code EST url-encodé avant d'être mis dans le JSON — particularité
-  confirmée par la décompilation, pas une coquille).
-- `POST /smart-life/v2/hms-lite/refreshToken` — endpoint **différent** de
-  `/token`, pas un `grant_type` sur le même path (piège : la première
-  intuition de "même URL + grantType=refresh_token" échoue silencieusement
-  avec une erreur générique `"System error"`).
-  Corps : `{"appId": APP_ID, "refresh_token": <brut, PAS url-encodé>}`.
-  Source : classe `RefreshTokenEntity` (`@JSONField(name="refresh_token")`)
-  + `mk1.refreshAccessToken()` dans l'APK décompilé.
-- `POST /smart-life/v2/hms-lite/userinfo` — corps `{"access_token": ...}`,
-  avec aussi `Authorization: Bearer <access_token>`. Réponse contient `userId`.
-- `GET https://smarthome.hicloud.com/userApp/v1.2.0/homes` — liste des maisons
-  (`Authorization: Bearer <access_token>`). Note : hôte **différent**
-  (`smarthome.hicloud.com`, pas `smartlife-dre.things.dbankcloud.com`).
-- `GET https://smarthome.hicloud.com/smart-life/v2/devices` — avec header
+- `POST /smart-life/v2/hms-lite/token` — code→tokens exchange.
+  Body: `{"appId": APP_ID, "code": urllib.parse.quote(one_time_code)}`
+  (the code IS url-encoded before being put into the JSON — confirmed by
+  decompilation, not a typo).
+- `POST /smart-life/v2/hms-lite/refreshToken` — a **different** endpoint from
+  `/token`, not a `grant_type` on the same path (trap: the first intuition of
+  "same URL + grantType=refresh_token" silently fails with a generic
+  `"System error"`).
+  Body: `{"appId": APP_ID, "refresh_token": <raw, NOT url-encoded>}`.
+  Source: `RefreshTokenEntity` class (`@JSONField(name="refresh_token")`)
+  + `mk1.refreshAccessToken()` in the decompiled APK.
+- `POST /smart-life/v2/hms-lite/userinfo` — body `{"access_token": ...}`,
+  also with `Authorization: Bearer <access_token>`. Response contains `userId`.
+- `GET https://smarthome.hicloud.com/userApp/v1.2.0/homes` — list of homes
+  (`Authorization: Bearer <access_token>`). Note: **different** host
+  (`smarthome.hicloud.com`, not `smartlife-dre.things.dbankcloud.com`).
+- `GET https://smarthome.hicloud.com/smart-life/v2/devices` — with header
   `x-homeId: <homeId>`.
-- `GET https://smarthome.hicloud.com/smart-life/v3/devices?homeId=<ids,séparés,par,virgule>`
+- `GET https://smarthome.hicloud.com/smart-life/v3/devices?homeId=<comma,separated,ids>`
 
-MQTT (confirmé, lampe réelle) :
-- broker `smartlife-dre.things.dbankcloud.com:8883`, TLS sans vérification de
-  chaîne (le cert n'est validé que par pinning côté appli officielle, pas une
-  CA publique).
-- topic commande : `/smartHome/signaltrans/v2/categories/command`
-- topic notify : `smarthome.notify.app.v1`
-- enveloppe : `{"header": {method, accessToken, mode, requestId, from, to,
+MQTT (confirmed, real lamp):
+- broker `smartlife-dre.things.dbankcloud.com:8883`, TLS without chain
+  verification (the cert is only validated via pinning on the official app's
+  side, not a public CA).
+- command topic: `/smartHome/signaltrans/v2/categories/command`
+- notify topic: `smarthome.notify.app.v1`
+- envelope: `{"header": {method, accessToken, mode, requestId, from, to,
   timestamp}, "body": {...}}`
 
-## Pourquoi pas d'OAuth natif HA (`config_entry_oauth2_flow`)
+## Why not native HA OAuth (`config_entry_oauth2_flow`)
 
-Contrainte découverte, pas un choix de facilité : le `redirect_uri` de
-l'appli Huawei officielle (dont on réutilise le `client_id` extrait de
-l'APK, `10406921`) est figé en dur sur `hms://redirect_url` — un schéma
-custom-scheme qu'aucun navigateur desktop ne sait ouvrir. On ne peut pas le
-remplacer par l'URL de callback de HA (`my.home-assistant.io/redirect/...`)
-comme le font Spotify/Google, car Huawei valide le `redirect_uri` contre ce
-qui est enregistré pour ce `client_id` côté serveur. En plus, leur page de
-login CAS passe par des contrôles anti-bot (vérification de ticket,
-empreinte navigateur `trustBrowser`/`chkRisk`) qui bloquent toute requête
-HTTP automatisée sans vrai moteur de rendu JS.
+A discovered constraint, not a convenience choice: the official Huawei app's
+`redirect_uri` (whose `client_id` we reuse, extracted from the APK,
+`10406921`) is hardcoded to `hms://redirect_url` — a custom URL scheme no
+desktop browser knows how to open. It can't be swapped for HA's own callback
+URL (`my.home-assistant.io/redirect/...`) the way Spotify/Google integrations
+do, because Huawei validates `redirect_uri` against whatever is registered for
+that `client_id` server-side. On top of that, their CAS login page runs
+anti-bot checks (ticket verification, `trustBrowser`/`chkRisk` browser
+fingerprinting) that block any automated HTTP request without a real
+JS-rendering engine.
 
-Conséquence : un vrai navigateur (même piloté par Playwright) est
-**nécessaire** pour passer ces contrôles, pas une solution de facilité. Et
-le faire tourner *depuis HA lui-même* ne marcherait que si HA tournait sur
-la machine où l'utilisateur est assis — dans la plupart des installs
-(Raspberry Pi, NAS, VM dédiée), HA n'a pas d'écran. D'où le choix d'un
-script local séparé (`tools/auto_authorize.py`), lancé une fois sur le PC
-de l'utilisateur, qui produit un JSON à coller dans le formulaire HA.
+Consequence: a real browser (even a Playwright-driven one) is **necessary** to
+pass these checks, not a shortcut. And running it *from HA itself* would only
+work if HA ran on the machine the user is sitting at — in most installs
+(Raspberry Pi, NAS, dedicated VM), HA has no screen. Hence the choice of a
+separate local script (`get_credentials.py`), run once on the user's own
+computer, that produces JSON to paste into the HA form.
 
-## Prochaines étapes possibles
+## Possible next steps
 
-1. Test end-to-end dans une install HA réelle (ajout d'intégration via le
-   JSON produit par `auto_authorize.py`, vérifier la persistance du
-   `refresh_token` renouvelé dans le config_entry après restart HA).
-2. Décider si on extrait la logique d'auth dans un module
-   `huawei_cloud_auth/` partagé (généralisation à d'autres appareils cloud
-   Huawei au-delà des lampes Opple) — discuté, pas encore fait.
-3. Décider du mode de distribution : HACS (repo public, déjà le cas) vs
-   copie manuelle de `custom_components/huawei_hilink_cloud/` dans
-   l'install HA — pas de contrainte de confidentialité, repo déjà public.
+1. Root-cause the empty `devices: []` result (see "Open issue" above): re-run
+   `get_credentials.py --debug` and inspect the redacted homes/devices
+   responses; confirm whether the logged-in account actually owns the paired
+   lamps; check whether the generic `smarthome.hicloud.com` host genuinely
+   serves this account's region or needs a `-dre`-style regional variant.
+2. End-to-end test in a real HA install (adding the integration via the JSON
+   produced by `get_credentials.py`, verifying the refreshed `refresh_token`
+   persists in the config_entry across an HA restart).
+3. Decide whether to extract the auth logic into a shared
+   `huawei_cloud_auth/` module (generalizing to other Huawei cloud devices
+   beyond Opple lamps) — discussed, not yet done.
+4. Decide on the distribution channel: HACS (public repo, already the case)
+   vs. manually copying `custom_components/huawei_hilink_cloud/` into the HA
+   install — no confidentiality constraint, the repo is already public.
 
-## Précautions
+## Precautions
 
-Ne jamais afficher ni committer `access_token`, `refresh_token`, ou un code
-d'autorisation OAuth en clair (ni dans le code, ni dans les messages, ni
-dans des fichiers de debug versionnés). `tools/auto_authorize.py` écrit
-uniquement le JSON de résultat final en local, jamais dans la sortie
-console.
+Never display or commit `access_token`, `refresh_token`, or a plaintext OAuth
+authorization code (not in code, not in messages, not in versioned debug
+files). `get_credentials.py` only writes the final result JSON locally and to
+its own loopback-only result page — never to the console.

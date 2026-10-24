@@ -1,72 +1,92 @@
-# Huawei HiLink Opple Light (cloud) — intégration Home Assistant
+# Huawei HiLink Opple Light (cloud) — Home Assistant integration
 
-Intégration non officielle pour piloter une lampe de bureau **Opple Smart Desk Lamp** (Huawei HiLink) depuis Home Assistant, via le pont cloud MQTT de Huawei (`smartlife-dre.things.dbankcloud.com`).
+Unofficial integration to control an **Opple Smart Desk Lamp** (Huawei HiLink) from
+Home Assistant, via Huawei's cloud MQTT bridge (`smartlife-dre.things.dbankcloud.com`).
 
-Projet de rétro-ingénierie personnel : le hub HiLink local de ces lampes a été abandonné par Huawei, seul le chemin cloud (compte Huawei + MQTT) reste fonctionnel.
+Personal reverse-engineering project: these lamps' local HiLink hub was abandoned by
+Huawei, so the cloud path (Huawei account + MQTT) is the only one still working.
 
-## ⚠️ Statut
+## ⚠️ Status
 
-- Pilotage temps réel (on/off, luminosité, température de couleur) : validé sur une lampe réelle.
-- Rafraîchissement automatique du token (refresh_token) : validé.
-- Récupération automatique des identifiants (`account` + `devices`) via `get_credentials.py` (livré dans le dossier de l'intégration, le chemin exact s'affiche dans l'écran « Ajouter l'intégration ») : validée.
+- Real-time control (on/off, brightness, color temperature): validated on a real lamp.
+- Automatic token refresh (`refresh_token`): validated.
+- Automatic credential retrieval (`account` + `devices`) via `get_credentials.py`
+  (shipped inside the integration's own folder, its exact path is shown on the
+  "Add integration" screen): validated.
 
-N'utilisez cette intégration que si vous êtes à l'aise pour bricoler : c'est un reverse engineering d'une API privée, non documentée et non garantie par Huawei.
+Only use this integration if you're comfortable tinkering: it's a reverse-engineered,
+undocumented private API with no guarantee from Huawei.
 
-## Installation via HACS (dépôt personnalisé)
+## Installing via HACS (custom repository)
 
-1. Dans Home Assistant : **HACS → ⋮ (menu en haut à droite) → Dépôts personnalisés**.
-2. Colle l'URL de ce dépôt GitHub, catégorie **Intégration**.
-3. Recherche « Huawei HiLink Opple Light (cloud) » dans HACS et installe-la.
-4. Redémarre Home Assistant.
-5. **Paramètres → Appareils et services → Ajouter une intégration → Huawei HiLink (cloud)**.
-6. Colle le JSON de configuration (voir ci-dessous).
+1. In Home Assistant: **HACS → ⋮ (top-right menu) → Custom repositories**.
+2. Paste this GitHub repo's URL, category **Integration**.
+3. Search for "Huawei HiLink Opple Light (cloud)" in HACS and install it.
+4. Restart Home Assistant.
+5. **Settings → Devices & services → Add integration → Huawei HiLink (cloud)**.
+6. Paste the configuration JSON (see below).
 
-## Obtenir les identifiants
+## Getting your credentials
 
-Tout est automatisé par `get_credentials.py`, **livré avec l'intégration**
-(installé par HACS dans `<dossier de config HA>/custom_components/
-huawei_hilink_cloud/get_credentials.py`) — l'écran « Ajouter l'intégration »
-dans Home Assistant affiche ce chemin exact et la marche à suivre, inutile
-de revenir sur GitHub ni de connaître le détail du reverse engineering.
+Everything is automated by `get_credentials.py`, **shipped with the integration**
+(installed by HACS at `<HA config dir>/custom_components/huawei_hilink_cloud/
+get_credentials.py`) — the "Add integration" screen in Home Assistant shows this
+exact path and what to do next, no need to go back to GitHub or know anything
+about the reverse engineering involved.
 
-1. Une seule fois, sur un ordinateur **avec un navigateur** (pas forcément
-   celui qui héberge Home Assistant — un NAS ou un Raspberry Pi en headless
-   n'a pas d'écran) : installe Playwright et son Chromium.
+1. Once, on a computer **with a browser** (not necessarily the one hosting Home
+   Assistant — a headless NAS or Raspberry Pi has no display): install Playwright
+   and its Chromium.
 
    ```bash
    pip install playwright
    playwright install chromium
    ```
 
-2. Copie `get_credentials.py` depuis le dossier de l'intégration sur cet
-   ordinateur (Samba, SSH, l'add-on Terminal/File editor...), puis lance-le :
+2. Copy `get_credentials.py` from the integration's folder to that computer (Samba,
+   SSH, the Terminal/File editor add-on...), then run it:
 
    ```bash
    python3 get_credentials.py
    ```
 
-3. Une fenêtre Chromium **visible** s'ouvre sur la page officielle `oauth-login1.cloud.huawei.com`. Connecte-toi avec ton compte Huawei et autorise l'accès, comme dans l'appli officielle.
-4. Le script intercepte automatiquement la redirection `hms://redirect_url?code=...` au moment où le navigateur tente de l'ouvrir (il ne sait pas gérer ce protocole, mais la tentative est capturée avant d'échouer) — aucune action de ta part, aucun copier-coller.
-5. Il enchaîne seul l'échange du code, la résolution de ton compte et la récupération de tes maisons/appareils, puis écrit `ha_credentials.json` dans le dossier courant.
-6. Colle le **contenu** de ce fichier dans le formulaire de configuration de Home Assistant — jamais ailleurs.
+3. A **visible** Chromium window opens on the official `oauth-login1.cloud.huawei.com`
+   page. Log in with your Huawei account and authorize access, just like in the
+   official app.
+4. The script automatically intercepts the `hms://redirect_url?code=...` redirect the
+   moment the browser tries to open it (it can't handle that scheme, but the attempt is
+   captured before it fails) — nothing to do on your end, no copy/pasting.
+5. It then exchanges the code, resolves your account, and fetches your homes/devices on
+   its own, and opens a local result page in your browser (`127.0.0.1` only) with a
+   **Copy JSON** button. A `ha_credentials.json` backup file is also written to the
+   current folder.
+6. Paste that JSON into the Home Assistant configuration form — never anywhere else.
 
-Le script n'affiche jamais `access_token`/`refresh_token`/`code` à l'écran, seulement un résumé (nombre d'appareils trouvés, durée de validité du token).
+The script never prints `access_token`/`refresh_token`/`code` to the terminal — only a
+summary (number of devices found, how long the token stays valid). If no device is
+found, it also prints a short diagnostic (home count, which API call came back empty)
+so the issue can be narrowed down; re-run with `--debug` for the full redacted output.
 
-### Pourquoi pas directement dans Home Assistant ?
+### Why not do this directly inside Home Assistant?
 
-On y a pensé — mais empaqueter un vrai moteur de navigateur (nécessaire
-pour passer les contrôles anti-bot de Huawei) à l'intérieur d'une
-intégration installée par HACS casserait chez la plupart des utilisateurs :
-une intégration ne peut installer que des paquets Python (`pip install`),
-jamais les bibliothèques système dont Chromium a besoin, et Home Assistant
-OS (l'install la plus courante) ne permet pas d'en ajouter. D'où le choix
-d'un script livré avec l'intégration mais exécuté à part, sur un ordinateur
-qui a un vrai navigateur.
+We considered it — but bundling a real browser engine (required to pass Huawei's
+anti-bot checks) inside a HACS-installed integration would break for most users: an
+integration can only install Python packages (`pip install`), never the system
+libraries Chromium needs, and Home Assistant OS (the most common install) doesn't let
+you add any. Hence the choice of a script shipped alongside the integration but run
+separately, on a computer that has a real browser.
 
-### Pourquoi un Chromium piloté plutôt qu'un simple lien à ouvrir ?
+### Why a driven Chromium instead of a simple link to open?
 
-Le `redirect_uri` de l'application Huawei officielle (`hms://redirect_url`) est un schéma d'URL personnalisé que seule l'appli mobile sait gérer. Sur un PC, aucun copier-coller manuel ne permet de récupérer cette redirection de façon fiable (DevTools/export réseau fonctionne mais reste fragile et peu reproductible). Piloter un vrai navigateur et intercepter la tentative de navigation au niveau protocole est la méthode utilisée par le projet de référence [`0xlic/ha-huawei-hilink-opple`](https://github.com/0xlic/ha-huawei-hilink-opple) — on la reprend ici, adaptée pour conserver `access_token`/`refresh_token` (nécessaires au pont cloud MQTT, contrairement à leur usage en contrôle local).
+The official Huawei app's `redirect_uri` (`hms://redirect_url`) is a custom URL scheme
+that only the mobile app knows how to handle. On a PC, no manual copy/paste reliably
+recovers that redirect (DevTools/network export works but stays fragile and hard to
+reproduce). Driving a real browser and intercepting the navigation attempt at the
+protocol level is the method used by the reference project
+[`0xlic/ha-huawei-hilink-opple`](https://github.com/0xlic/ha-huawei-hilink-opple) — reused
+here, adapted to keep `access_token`/`refresh_token` (needed for the cloud MQTT bridge,
+unlike their local-control use case).
 
-## Licence
+## License
 
-MIT — voir `LICENSE`. Projet non affilié à Huawei ni à Opple.
+MIT — see `LICENSE`. Not affiliated with Huawei or Opple.
