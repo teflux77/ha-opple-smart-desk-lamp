@@ -1,0 +1,11 @@
+{
+  "domain": "huawei_hilink_cloud",
+  "name": "Huawei HiLink Opple Light (cloud)",
+  "codeowners": ["@teflux77"],
+  "config_flow": true,
+  "documentation": "https://github.com/teflux77/ha-opple-smart-desk-lamp",
+  "issue_tracker": "https://github.com/teflux77/ha-opple-smart-desk-lamp/issues",
+  "iot_class": "cloud_push",
+  "requirements": ["paho-mqtt>=1.6,<3"],
+  "version": "0.1.0"
+}
