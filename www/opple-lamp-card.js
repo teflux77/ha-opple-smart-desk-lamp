@@ -258,40 +258,47 @@ class OppleLampCard extends HTMLElement {
       return;
     }
     const isOn = stateObj.state === "on";
+    const isUnknown = stateObj.state === "unknown" || stateObj.state === "unavailable";
 
     this.querySelector(".header").textContent = cfg.name || stateObj.attributes.friendly_name || "";
-    this.querySelector(".status-text").textContent = isOn ? "On" : "Off";
+    this.querySelector(".status-text").textContent = isUnknown ? "—" : isOn ? "On" : "Off";
     const powerBtn = this.querySelector(".power-btn");
     powerBtn.classList.toggle("on", isOn);
 
-    // Brightness
+    // Brightness - shown whenever the light is on, even before its current
+    // value is known (state is only ever learned from a push after a
+    // command; see the GET-on-startup fix in __init__.py). Falls back to a
+    // sensible default so the slider is still usable meanwhile, and shows
+    // "—" instead of a possibly-wrong percentage until the real value lands.
     const brightnessRow = this.querySelector(".brightness-row");
-    if (isOn && stateObj.attributes.brightness != null) {
+    if (isOn) {
       brightnessRow.style.display = "";
-      const pct = Math.round((stateObj.attributes.brightness / 255) * 100);
+      const known = stateObj.attributes.brightness != null;
+      const pct = known ? Math.round((stateObj.attributes.brightness / 255) * 100) : 50;
       const slider = this.querySelector(".brightness-slider");
       if (document.activeElement !== slider) {
         slider.value = pct;
       }
-      this.querySelector(".brightness-value").textContent = `${pct}%`;
+      this.querySelector(".brightness-value").textContent = known ? `${pct}%` : "—";
     } else {
       brightnessRow.style.display = "none";
     }
 
-    // Color temperature
+    // Color temperature - same reasoning as brightness above.
     const cctRow = this.querySelector(".cct-row");
-    if (isOn && stateObj.attributes.color_temp_kelvin != null) {
+    if (isOn) {
       cctRow.style.display = "";
       const min = stateObj.attributes.min_color_temp_kelvin || 2700;
       const max = stateObj.attributes.max_color_temp_kelvin || 5700;
-      const value = stateObj.attributes.color_temp_kelvin;
+      const known = stateObj.attributes.color_temp_kelvin != null;
+      const value = known ? stateObj.attributes.color_temp_kelvin : Math.round((min + max) / 2);
       const slider = this.querySelector(".cct-slider");
       slider.min = min;
       slider.max = max;
       if (document.activeElement !== slider) {
         slider.value = value;
       }
-      this.querySelector(".cct-value").textContent = `${value} K`;
+      this.querySelector(".cct-value").textContent = known ? `${value} K` : "—";
     } else {
       cctRow.style.display = "none";
     }

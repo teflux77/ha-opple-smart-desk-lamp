@@ -11,7 +11,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 
 from .cloud_client import CloudTokens, HuaweiCloudMqttClient
-from .const import DOMAIN, PLATFORMS, SIGNAL_DEVICE_UPDATE
+from .const import DOMAIN, PLATFORMS, SERVICE_SWITCH, SIGNAL_DEVICE_UPDATE
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -62,6 +62,29 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+
+    # Entities only ever learn the lamp's state from a deviceDataChanged push
+    # (see on_device_update above), which the cloud only sends after a
+    # command - there's no proactive state fetch otherwise. So right after
+    # (re)start/reload, everything is "unknown" until the user touches a
+    # control. Fire one GET per device now (any single serviceId works - the
+    # cloud replies with the FULL device state, same as after a real
+    # command, per the "Validation complète du pont MQTT" findings) to
+    # populate entities immediately instead of waiting. Best-effort: never
+    # block or fail setup over this.
+    for device in entry.data["devices"]:
+        device_id = device["device_id"]
+
+        async def _request_initial_state(device_id: str = device_id) -> None:
+            try:
+                await client.async_request_state(device_id, SERVICE_SWITCH)
+            except Exception:  # noqa: BLE001 - startup nicety, must never crash setup
+                _LOGGER.debug(
+                    "Initial state query failed for device %s", device_id, exc_info=True
+                )
+
+        hass.async_create_task(_request_initial_state())
+
     return True
 
 

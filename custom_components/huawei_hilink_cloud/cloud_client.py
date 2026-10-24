@@ -288,9 +288,16 @@ class HuaweiCloudMqttClient:
     # -- commands ----------------------------------------------------------
 
     async def async_send_command(
-        self, device_id: str, service_id: str, data: dict[str, Any]
+        self, device_id: str, service_id: str, data: dict[str, Any] | None = None
     ) -> dict[str, Any]:
-        """Publish a command and wait for its commandRsp ACK."""
+        """Publish a command and wait for its commandRsp ACK.
+
+        A falsy/omitted `data` sends a GET (state query) instead of a POST -
+        mirrors the official app's decompiled logic (method = GET if body
+        empty/absent, POST otherwise). Used on integration startup to pull
+        each device's current full state instead of waiting passively for
+        the next user-triggered change (see async_request_state below).
+        """
         await self._ensure_token_fresh()
         await self._connected.wait()
         assert self._client is not None
@@ -298,7 +305,7 @@ class HuaweiCloudMqttClient:
         request_id = str(uuid.uuid4())
         envelope = {
             "header": {
-                "method": "POST",
+                "method": "POST" if data else "GET",
                 "accessToken": self._tokens.access_token,
                 "mode": "ACK",
                 "requestId": request_id,
@@ -306,7 +313,7 @@ class HuaweiCloudMqttClient:
                 "to": f"/devices/{device_id}/services/{service_id}",
                 "timestamp": _now_ts(),
             },
-            "body": data,
+            "body": data or {},
         }
         future: asyncio.Future[dict[str, Any]] = self._loop.create_future()
         self._pending_acks[request_id] = future
@@ -316,3 +323,7 @@ class HuaweiCloudMqttClient:
         except asyncio.TimeoutError:
             self._pending_acks.pop(request_id, None)
             raise
+
+    async def async_request_state(self, device_id: str, service_id: str) -> dict[str, Any]:
+        """Send a GET (state query) for one service - see async_send_command."""
+        return await self.async_send_command(device_id, service_id, None)
