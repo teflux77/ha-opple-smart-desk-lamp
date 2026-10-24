@@ -3,7 +3,7 @@
 from typing import Final
 
 DOMAIN: Final = "huawei_hilink_cloud"
-PLATFORMS: Final = ["light"]
+PLATFORMS: Final = ["light", "switch"]
 
 MIN_COLOR_TEMP_KELVIN: Final = 2700
 MAX_COLOR_TEMP_KELVIN: Final = 5700

@@ -15,5 +15,15 @@
     "abort": {
       "already_configured": "This Huawei account is already configured."
     }
+  },
+  "entity": {
+    "switch": {
+      "backlight": {
+        "name": "Backlight"
+      },
+      "night_switch": {
+        "name": "Night light"
+      }
+    }
   }
 }
