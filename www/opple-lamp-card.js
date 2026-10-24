@@ -69,10 +69,22 @@ class OppleLampCard extends HTMLElement {
   set hass(hass) {
     this._hass = hass;
     if (!this._built) {
-      this._build();
-      this._built = true;
+      try {
+        this._build();
+        this._built = true;
+      } catch (err) {
+        // Fail loud: a silent exception here would otherwise just leave the
+        // card half-wired (e.g. the tile's click listener never attached),
+        // which looks like "nothing happens when I tap it" with no clue why.
+        console.error("opple-lamp-card: failed to build card", err);
+        return;
+      }
     }
-    this._render();
+    try {
+      this._render();
+    } catch (err) {
+      console.error("opple-lamp-card: failed to render card", err);
+    }
   }
 
   _build() {
@@ -389,6 +401,7 @@ class OppleLampCard extends HTMLElement {
 
     this.querySelector(".tile").addEventListener("click", (e) => {
       if (e.target.closest(".tile-toggle")) return; // toggle handled separately, doesn't open the dialog
+      console.debug("opple-lamp-card: tile tapped, opening dialog for", this._config.entity);
       overlay.classList.add("open");
     });
     overlay.querySelector(".dialog-close").addEventListener("click", () =>
@@ -416,6 +429,8 @@ class OppleLampCard extends HTMLElement {
     overlay.querySelector(".cct-slider").addEventListener("input", (e) => {
       overlay.querySelector(".cct-value").textContent = `${e.target.value} K`;
     });
+
+    console.debug("opple-lamp-card: build complete for", this._config.entity);
   }
 
   _render() {
@@ -634,7 +649,22 @@ class OppleLampCard extends HTMLElement {
   }
 }
 
-customElements.define("opple-lamp-card", OppleLampCard);
+// Guard against double-registration: if the resource somehow gets loaded
+// twice (e.g. a leftover duplicate entry under Settings -> Dashboards ->
+// Resources pointing at an older ?v=N of this same file), a second
+// `customElements.define` call for the same tag throws and silently aborts
+// the rest of that script - which can leave the dashboard running a stale,
+// half-broken copy of this card with no visible error. Skip re-defining
+// instead of crashing.
+if (!customElements.get("opple-lamp-card")) {
+  customElements.define("opple-lamp-card", OppleLampCard);
+} else {
+  console.warn(
+    "opple-lamp-card: already registered - check Settings > Dashboards > Resources " +
+      "for more than one entry pointing at opple-lamp-card.js (different ?v=N values " +
+      "count as different entries) and remove the stale one(s)."
+  );
+}
 
 window.customCards = window.customCards || [];
 window.customCards.push({
