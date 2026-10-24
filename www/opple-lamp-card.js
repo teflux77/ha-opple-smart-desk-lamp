@@ -1,8 +1,11 @@
 /**
  * Opple Lamp Card - a custom Lovelace card for the Huawei HiLink Opple
- * integration, styled after the lamp's own control layout (status bar,
- * lighting-mode row, brightness slider) - an original line-art illustration
- * and CSS, not a copy of the Huawei AI Life app's actual assets.
+ * integration. Renders as a compact tile (icon, name, on/off state, power
+ * toggle) like the default dashboard light tiles - tapping it opens a
+ * dialog with the full controls (lighting mode, brightness, color
+ * temperature, backlight/night light), styled after the lamp's own layout.
+ * Original line-art illustration and CSS - not a copy of the Huawei AI Life
+ * app's actual assets.
  *
  * Install:
  *   1. Copy this file to <config>/www/opple-lamp-card.js
@@ -31,15 +34,6 @@ const MODE_ICONS = {
 
 const MODE_ORDER = ["reading", "writing", "computer", "custom"];
 
-const LAMP_SVG = `
-<svg viewBox="0 0 220 160" class="lamp-art" aria-hidden="true">
-  <g fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
-    <line x1="40" y1="20" x2="170" y2="20" />
-    <line x1="60" y1="20" x2="60" y2="120" />
-    <ellipse cx="60" cy="130" rx="46" ry="10" />
-  </g>
-</svg>`;
-
 class OppleLampCard extends HTMLElement {
   setConfig(config) {
     if (!config.entity) {
@@ -50,7 +44,7 @@ class OppleLampCard extends HTMLElement {
   }
 
   getCardSize() {
-    return 5;
+    return 2;
   }
 
   set hass(hass) {
@@ -69,23 +63,128 @@ class OppleLampCard extends HTMLElement {
         ha-card.opple-card {
           background: #0b0b0c;
           color: #f2f2f2;
-          padding: 16px 16px 20px;
           border-radius: 18px;
           font-family: var(--paper-font-body1_-_font-family, inherit);
+          overflow: visible;
+        }
+
+        /* ---- Compact tile (default card view) ---- */
+        .tile {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 12px 14px;
+          cursor: pointer;
+        }
+        .tile-icon {
+          width: 40px;
+          height: 40px;
+          border-radius: 50%;
+          background: #2c2c2e;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+          color: #9a9a9a;
+          transition: background 0.15s, color 0.15s;
+        }
+        .tile-icon.on {
+          background: #3a7bd533;
+          color: #5b9bff;
+        }
+        .tile-info {
+          flex: 1;
+          min-width: 0;
+        }
+        .tile-name {
+          font-size: 14px;
+          font-weight: 500;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .tile-state {
+          font-size: 12.5px;
+          opacity: 0.6;
+        }
+
+        /* ---- Shared power-button style (tile toggle + dialog rows) ---- */
+        .opple-card .power-btn {
+          width: 40px;
+          height: 40px;
+          border-radius: 50%;
+          border: none;
+          background: #2c2c2e;
+          color: #9a9a9a;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: background 0.15s, color 0.15s;
+          flex-shrink: 0;
+        }
+        .opple-card .power-btn.on {
+          background: #3a7bd5;
+          color: #fff;
+        }
+        .opple-card .power-btn ha-icon {
+          --mdc-icon-size: 20px;
+        }
+
+        /* ---- Overlay / dialog (opened by tapping the tile) ---- */
+        .overlay {
+          position: fixed;
+          inset: 0;
+          background: rgba(0, 0, 0, 0.65);
+          display: none;
+          align-items: center;
+          justify-content: center;
+          z-index: 100;
+          padding: 16px;
+          box-sizing: border-box;
+        }
+        .overlay.open {
+          display: flex;
+        }
+        .dialog {
+          position: relative;
+          width: 100%;
+          max-width: 360px;
+          max-height: 90vh;
+          overflow-y: auto;
+          background: #0b0b0c;
+          border-radius: 18px;
+          padding: 16px 16px 20px;
+          box-sizing: border-box;
+        }
+        .dialog-close {
+          position: absolute;
+          top: 10px;
+          right: 10px;
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          border: none;
+          background: #2c2c2e;
+          color: #e8e8e8;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          z-index: 1;
         }
         .opple-card .header {
           text-align: center;
-          font-size: 15px;
-          opacity: 0.7;
-          margin-bottom: 4px;
+          margin-bottom: 12px;
         }
-        .opple-card .lamp-art {
-          display: block;
-          width: 100%;
-          max-width: 220px;
-          height: 90px;
-          margin: 4px auto 10px;
-          color: #e8e8e8;
+        .opple-card .header-area {
+          font-size: 12.5px;
+          opacity: 0.6;
+          margin-bottom: 2px;
+        }
+        .opple-card .header-name {
+          font-size: 16px;
+          font-weight: 600;
         }
         .opple-card .row-card {
           background: #1c1c1e;
@@ -101,26 +200,6 @@ class OppleLampCard extends HTMLElement {
         .opple-card .status-text {
           font-size: 20px;
           font-weight: 600;
-        }
-        .opple-card .power-btn {
-          width: 44px;
-          height: 44px;
-          border-radius: 50%;
-          border: none;
-          background: #2c2c2e;
-          color: #9a9a9a;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-          transition: background 0.15s, color 0.15s;
-        }
-        .opple-card .power-btn.on {
-          background: #3a7bd5;
-          color: #fff;
-        }
-        .opple-card .power-btn ha-icon {
-          --mdc-icon-size: 22px;
         }
         .opple-card .mode-grid {
           display: grid;
@@ -200,41 +279,74 @@ class OppleLampCard extends HTMLElement {
         }
       </style>
       <ha-card class="opple-card">
-        <div class="header"></div>
-        ${LAMP_SVG}
-        <div class="row-card status-row">
-          <div class="status-text"></div>
-          <button class="power-btn" title="Power">
+        <div class="tile">
+          <div class="tile-icon"><ha-icon icon="mdi:desk-lamp"></ha-icon></div>
+          <div class="tile-info">
+            <div class="tile-name"></div>
+            <div class="tile-state"></div>
+          </div>
+          <button class="power-btn tile-toggle" title="Power">
             <ha-icon icon="mdi:power"></ha-icon>
           </button>
         </div>
-        <div class="row-card mode-row" style="display:none">
-          <div class="mode-grid"></div>
-        </div>
-        <div class="row-card brightness-row" style="display:none">
-          <div class="brightness-label">
-            <span>Brightness</span>
-            <span class="brightness-value"></span>
+        <div class="overlay">
+          <div class="dialog">
+            <button class="dialog-close" title="Close"><ha-icon icon="mdi:close"></ha-icon></button>
+            <div class="header">
+              <div class="header-area"></div>
+              <div class="header-name"></div>
+            </div>
+            <div class="row-card status-row">
+              <div class="status-text"></div>
+              <button class="power-btn dialog-toggle" title="Power">
+                <ha-icon icon="mdi:power"></ha-icon>
+              </button>
+            </div>
+            <div class="row-card mode-row" style="display:none">
+              <div class="mode-grid"></div>
+            </div>
+            <div class="row-card brightness-row" style="display:none">
+              <div class="brightness-label">
+                <span>Brightness</span>
+                <span class="brightness-value"></span>
+              </div>
+              <input type="range" min="1" max="100" step="1" class="brightness-slider" />
+            </div>
+            <div class="row-card cct-row" style="display:none">
+              <div class="brightness-label">
+                <span>Color temperature</span>
+                <span class="cct-value"></span>
+              </div>
+              <input type="range" step="50" class="cct-slider warm-cool" />
+            </div>
+            <div class="row-card extra-row" style="display:none"></div>
           </div>
-          <input type="range" min="1" max="100" step="1" class="brightness-slider" />
         </div>
-        <div class="row-card cct-row" style="display:none">
-          <div class="brightness-label">
-            <span>Color temperature</span>
-            <span class="cct-value"></span>
-          </div>
-          <input type="range" step="50" class="cct-slider warm-cool" />
-        </div>
-        <div class="row-card extra-row" style="display:none"></div>
       </ha-card>
     `;
     this.innerHTML = "";
-    this.appendChild(root.firstElementChild ? root : root);
-    // move children up (we wrapped in a plain div for innerHTML parsing)
     while (root.firstChild) {
       this.appendChild(root.firstChild);
     }
-    this.querySelector(".power-btn").addEventListener("click", () => this._togglePower());
+
+    const overlay = this.querySelector(".overlay");
+    this.querySelector(".tile").addEventListener("click", (e) => {
+      if (e.target.closest(".tile-toggle")) return; // toggle handled separately, doesn't open the dialog
+      overlay.classList.add("open");
+    });
+    this.querySelector(".dialog-close").addEventListener("click", () =>
+      overlay.classList.remove("open")
+    );
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) overlay.classList.remove("open"); // backdrop click closes it
+    });
+
+    this.querySelectorAll(".power-btn").forEach((btn) =>
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        this._togglePower();
+      })
+    );
     this.querySelector(".brightness-slider").addEventListener("change", (e) =>
       this._setBrightness(Number(e.target.value))
     );
@@ -254,24 +366,52 @@ class OppleLampCard extends HTMLElement {
     const cfg = this._config;
     const stateObj = hass.states[cfg.entity];
     if (!stateObj) {
-      this.querySelector(".status-text").textContent = "Entity not found";
+      this.querySelector(".tile-name").textContent = "Entity not found";
       return;
     }
     const isOn = stateObj.state === "on";
     const isUnknown = stateObj.state === "unknown" || stateObj.state === "unavailable";
+    const name = cfg.name || stateObj.attributes.friendly_name || "";
+    const stateLabel = isUnknown ? "—" : isOn ? "On" : "Off";
 
-    this.querySelector(".header").textContent = cfg.name || stateObj.attributes.friendly_name || "";
-    this.querySelector(".status-text").textContent = isUnknown ? "—" : isOn ? "On" : "Off";
-    const powerBtn = this.querySelector(".power-btn");
-    powerBtn.classList.toggle("on", isOn);
+    // Compact tile
+    this.querySelector(".tile-name").textContent = name;
+    this.querySelector(".tile-state").textContent = stateLabel;
+    this.querySelector(".tile-icon").classList.toggle("on", isOn);
+    this.querySelectorAll(".power-btn").forEach((btn) => btn.classList.toggle("on", isOn));
 
-    // Brightness - shown whenever the light is on, even before its current
-    // value is known (state is only ever learned from a push after a
-    // command; see the GET-on-startup fix in __init__.py). Falls back to a
-    // sensible default so the slider is still usable meanwhile, and shows
-    // "—" instead of a possibly-wrong percentage until the real value lands.
+    // Dialog header: area name (small, like the default light tile's detail
+    // view) above the entity/friendly name.
+    this.querySelector(".header-area").textContent = this._areaName(hass, cfg.entity);
+    this.querySelector(".header-name").textContent = name;
+    this.querySelector(".status-text").textContent = stateLabel;
+
+    // In "Computer" lighting mode only the side light (backlight) is on and
+    // the main light entity itself reports "off" - but brightness still
+    // applies to whichever point is actually lit (see the project doc's
+    // "Observation importante" note). So brightness stays visible whenever
+    // EITHER the main light or the backlight is on, not just the main light.
+    const backlightOn =
+      cfg.backlight_entity &&
+      hass.states[cfg.backlight_entity] &&
+      hass.states[cfg.backlight_entity].state === "on";
+    const anyLightOn = isOn || backlightOn;
+    // Color temperature is tied to the *lighting mode*, not on/off state: in
+    // "Computer" mode the lamp runs off the side light only, which has no
+    // tunable color temperature - so cct is hidden specifically in that mode,
+    // shown in every other mode (as long as the main light is on).
+    const currentMode =
+      cfg.mode_entity && hass.states[cfg.mode_entity] && hass.states[cfg.mode_entity].state;
+    const cctAllowed = currentMode !== "computer";
+
+    // Brightness - shown whenever the main light or the backlight is on,
+    // even before its current value is known (state is only ever learned
+    // from a push after a command; see the GET-on-startup fix in
+    // __init__.py). Falls back to a sensible default so the slider is still
+    // usable meanwhile, and shows "—" instead of a possibly-wrong percentage
+    // until the real value lands.
     const brightnessRow = this.querySelector(".brightness-row");
-    if (isOn) {
+    if (anyLightOn) {
       brightnessRow.style.display = "";
       const known = stateObj.attributes.brightness != null;
       const pct = known ? Math.round((stateObj.attributes.brightness / 255) * 100) : 50;
@@ -284,9 +424,9 @@ class OppleLampCard extends HTMLElement {
       brightnessRow.style.display = "none";
     }
 
-    // Color temperature - same reasoning as brightness above.
+    // Color temperature - see cctAllowed above.
     const cctRow = this.querySelector(".cct-row");
-    if (isOn) {
+    if (isOn && cctAllowed) {
       cctRow.style.display = "";
       const min = stateObj.attributes.min_color_temp_kelvin || 2700;
       const max = stateObj.attributes.max_color_temp_kelvin || 5700;
@@ -349,7 +489,8 @@ class OppleLampCard extends HTMLElement {
             <ha-icon icon="mdi:power" style="--mdc-icon-size:18px"></ha-icon>
           </button>
         `;
-        row.querySelector("button").addEventListener("click", () => {
+        row.querySelector("button").addEventListener("click", (e) => {
+          e.stopPropagation();
           hass.callService("switch", st.state === "on" ? "turn_off" : "turn_on", {
             entity_id: entityId,
           });
@@ -361,8 +502,29 @@ class OppleLampCard extends HTMLElement {
     }
   }
 
+  _areaName(hass, entityId) {
+    // Mirrors what the default light tile's detail (more-info) view shows
+    // above the entity name: the area it's assigned to, via entity -> device
+    // -> area, falling back to a direct entity -> area assignment.
+    try {
+      const entity = hass.entities && hass.entities[entityId];
+      if (!entity) return "";
+      let areaId = entity.area_id;
+      if (!areaId && entity.device_id && hass.devices) {
+        const device = hass.devices[entity.device_id];
+        areaId = device && device.area_id;
+      }
+      if (!areaId || !hass.areas) return "";
+      const area = hass.areas[areaId];
+      return (area && area.name) || "";
+    } catch (e) {
+      return "";
+    }
+  }
+
   _prettyLabel(hass, entityId, option) {
-    // Use HA's own translated state label when available, else humanize the raw option.
+    // Use HA's own translated state label (follows the account's language,
+    // e.g. "Ordinateur" for French) when available, else humanize the raw option.
     const stateObj = hass.states[entityId];
     const translated =
       stateObj &&
@@ -417,5 +579,5 @@ window.customCards.push({
   type: "opple-lamp-card",
   name: "Opple Lamp Card",
   description:
-    "Lighting-mode / brightness / side-light control card for the Huawei HiLink Opple lamp integration.",
+    "Compact tile for the Huawei HiLink Opple lamp integration - tap to open the full lighting-mode / brightness / color temperature / side-light controls.",
 });
