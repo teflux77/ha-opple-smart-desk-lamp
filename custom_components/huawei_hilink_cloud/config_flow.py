@@ -1,10 +1,18 @@
 """Config flow for the Huawei HiLink cloud (MQTT) integration.
 
-Setup is a single paste step, same spirit as the local CoAP integration's
-credential JSON paste: the user runs the (to-be-extended) local credential
-helper tool out-of-band, which performs the OAuth login and prints a single
-JSON blob combining the account tokens and the device list. Nothing is
-typed by hand and no OAuth dance happens inside Home Assistant.
+Setup is a single paste step. The user runs get_credentials.py - shipped
+INSIDE this integration's own folder, so HACS installs it automatically -
+on any computer with a browser (not necessarily the one hosting Home
+Assistant, which often has no display). That script drives a real Chromium
+(Playwright) through the Huawei login, which is required to pass Huawei's
+anti-bot checks (a plain HTTP request without a real browser gets rejected
+- see CLAUDE.md for the reverse-engineering notes), and prints one JSON
+blob combining the account tokens and the device list. Nothing is typed by
+hand and no OAuth dance happens inside Home Assistant's own process - this
+is a deliberate choice, not a stopgap: embedding a full browser engine
+inside a HACS-installed integration would require system libraries that
+can't be installed on Home Assistant OS, so it would break for most real
+installs.
 
 Expected JSON shape::
 
@@ -71,6 +79,9 @@ class HuaweiHilinkCloudConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=vol.Schema({vol.Required("credentials_json"): str}),
             errors=errors,
             description_placeholders={
-                "helper": "credential_web.py (version étendue) ou fetch_huawei_credentials.py"
+                "helper_path": (
+                    "<dossier de config HA>/custom_components/huawei_hilink_cloud/"
+                    "get_credentials.py"
+                ),
             },
         )

@@ -22,12 +22,22 @@ par l'assistant de configuration Home Assistant de cette intégration.
 N'affiche jamais access_token/refresh_token/code à l'écran - seulement un
 résumé (nombre de maisons/appareils trouvés, durée de validité du token).
 
+Ce fichier vit À L'INTÉRIEUR du dossier de l'intégration (installé par HACS
+dans <config HA>/custom_components/huawei_hilink_cloud/get_credentials.py)
+pour être livré automatiquement à chaque installation - inutile d'aller le
+chercher ailleurs. L'écran "Ajouter l'intégration" dans Home Assistant
+affiche son chemin exact et la marche à suivre.
+
+À exécuter sur un ordinateur AVEC UN NAVIGATEUR (ton PC/Mac), pas forcément
+celui qui héberge Home Assistant si celui-ci n'a pas d'écran (NAS,
+Raspberry Pi en headless, etc.) - copie juste ce fichier là où tu l'exécutes.
+
 Prérequis (une seule fois) :
     pip install playwright
     playwright install chromium
 
 Usage :
-    python3 auto_authorize.py [--output ha_credentials.json] [--timeout 180]
+    python3 get_credentials.py [--output ha_credentials.json] [--timeout 180]
 """
 
 from __future__ import annotations

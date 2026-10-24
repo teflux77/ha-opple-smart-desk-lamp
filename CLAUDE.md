@@ -17,8 +17,20 @@ Dépôt GitHub public : `teflux77/ha-opple-smart-desk-lamp`.
 - ✅ Récupération automatique des identifiants (`tools/auto_authorize.py`,
   Playwright) validée : capture le code OAuth sans copier-coller manuel,
   enchaîne token → userinfo → homes → devices, écrit le JSON prêt pour HA.
+- ✅ Décision prise (2026-10-24) : le script d'identifiants (renommé
+  `get_credentials.py`) vit **à l'intérieur** de
+  `custom_components/huawei_hilink_cloud/` pour être livré automatiquement
+  par HACS. L'écran "Ajouter l'intégration" (`config_flow.py` +
+  `strings.json`/`translations/`) affiche directement le chemin exact et la
+  marche à suivre — personne n'a besoin de revenir sur GitHub ni de
+  connaître le reverse engineering. Alternative "tout dans HA, zéro script
+  externe" explicitement écartée : embarquer un moteur de navigateur dans
+  une intégration HACS casserait sur Home Assistant OS (pas de libs système
+  installables). Voir la section "Pourquoi pas directement dans Home
+  Assistant" du README pour l'explication complète.
 - ⏳ Pas encore testé en conditions réelles dans une install HA complète
-  (install fraîche + ajout d'intégration de bout en bout).
+  (install fraîche + ajout d'intégration de bout en bout, avec le nouveau
+  texte d'écran).
 - 💭 Discuté mais pas fait : extraire la logique d'auth (échange de token,
   refresh, homes/devices) dans un module séparé `huawei_cloud_auth/`
   réutilisable par de futures intégrations d'autres appareils Huawei cloud

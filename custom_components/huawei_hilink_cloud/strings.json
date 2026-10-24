@@ -1,0 +1,19 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Huawei HiLink Opple Light (cloud)",
+        "description": "1. Sur un ordinateur AVEC UN NAVIGATEUR (pas forcément celui qui héberge Home Assistant) : `pip install playwright` puis `playwright install chromium` (une seule fois).\n2. Copie ce fichier sur cet ordinateur et lance-le :\n`{helper_path}`\n3. Une fenêtre Chromium s'ouvre sur la page officielle Huawei - connecte-toi normalement, rien d'autre à faire.\n4. Le script capture tout automatiquement et écrit `ha_credentials.json` dans le dossier courant.\n5. Colle ci-dessous le **contenu** de ce fichier.",
+        "data": {
+          "credentials_json": "Contenu de ha_credentials.json"
+        }
+      }
+    },
+    "error": {
+      "invalid_json": "JSON invalide ou incomplet - relance get_credentials.py et recolle le résultat complet."
+    },
+    "abort": {
+      "already_configured": "Ce compte Huawei est déjà configuré."
+    }
+  }
+}
