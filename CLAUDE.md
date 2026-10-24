@@ -42,19 +42,22 @@ are kept in English; only `translations/fr.json` stays French as a secondary loc
   confirmed on 2026-10-23; "uk" in the app's own picker maps to ISO `GB`), and
   auto-detects the login page's display language from the machine's own locale
   (`--country-code`/`--ui-locale` to override either without the prompt).
-- ✅ Root cause found (2026-10-24) for the `"devices": []` issue: the `x-language`
-  header sent on every API call (token/userinfo/homes/devices) was hardcoded to
-  `zh-CN` in `get_credentials.py`. That header is NOT purely cosmetic for the
-  homes/devices lookup the way `ui_locales` is for the login page - it needs to
-  roughly match the account's own region, same conclusion reached on 2026-10-23 when
-  forcing it to `en-GB` (alongside `countryCode=GB`) was what made `credential_web.py`
-  return results. `get_credentials.py` now derives `x-language` from the
-  interactively-prompted country code via a small `LANGUAGE_BY_COUNTRY` table (GB ->
-  en-GB, falls back to `en-<COUNTRY>` for anything not in the table) and threads it
-  through every call; diagnostics print which value was used. `cloud_client.py`
-  (ongoing MQTT token refresh, used after HA setup) still hardcodes `zh-CN` -
-  deliberately NOT touched, since that path is separately validated working as-is;
-  revisit only if refresh ever starts failing for a non-CN account.
+- ✅ Root cause found (2026-10-24) for the `"devices": []` issue: HOMES_URL/
+  DEVICES_V2_URL/DEVICES_V3_URL were pointed at the generic/global
+  `smarthome.hicloud.com` host. For this EU-region account they must be on the SAME
+  regional host as the token exchange, `smartlife-dre.things.dbankcloud.com` - the
+  generic host doesn't error, it just silently returns zero devices. This matches
+  what actually worked via `credential_web.py` on the night of 2026-10-22→23 (the
+  determining change there, confirmed by Stéphane re-checking that session: just
+  `countryCode: "GB"` on the `/authorize` call - no `x-language` change was involved,
+  that was an earlier, incorrect guess on my part). `get_credentials.py`'s
+  `HOMES_URL`/`DEVICES_V2_URL`/`DEVICES_V3_URL` now all use `BASE_URL`
+  (smartlife-dre...) instead of a separate `HICLOUD_BASE`. The `x-language` ->
+  `LANGUAGE_BY_COUNTRY` change (deriving the header from the prompted country instead
+  of hardcoding `zh-CN`) is kept anyway as a reasonable correctness improvement, but
+  was NOT the historical fix and should not be assumed load-bearing. `cloud_client.py`
+  (ongoing MQTT token refresh, used after HA setup) already uses the EU host and was
+  not touched.
 - ⏳ Not yet tested end-to-end in a full HA install (fresh install + adding the
   integration from scratch, with the new screen text).
 - 💭 Discussed but not done: extract the auth logic (token exchange, refresh,

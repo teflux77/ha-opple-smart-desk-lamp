@@ -50,17 +50,23 @@ about the reverse engineering involved.
    python3 get_credentials.py
    ```
 
-3. A **visible** Chromium window opens on the official `oauth-login1.cloud.huawei.com`
-   page. Log in with your Huawei account and authorize access, just like in the
-   official app.
-4. The script automatically intercepts the `hms://redirect_url?code=...` redirect the
+3. It first asks which **country/region** is selected in the Huawei AI Life app
+   (*Me > Account > Country or Region*) - type it exactly as shown there (e.g.
+   `uk` for "United Kingdom"). This isn't cosmetic: it decides which Huawei data
+   center handles the login, and a mismatch is the most common reason for an empty
+   device list. Pass `--country-code uk` to skip this prompt next time.
+4. A **visible** Chromium window opens on the official `oauth-login1.cloud.huawei.com`
+   page (in your own machine's language, auto-detected - override with
+   `--ui-locale fr-fr`). Log in with your Huawei account and authorize access, just
+   like in the official app.
+5. The script automatically intercepts the `hms://redirect_url?code=...` redirect the
    moment the browser tries to open it (it can't handle that scheme, but the attempt is
    captured before it fails) — nothing to do on your end, no copy/pasting.
-5. It then exchanges the code, resolves your account, and fetches your homes/devices on
+6. It then exchanges the code, resolves your account, and fetches your homes/devices on
    its own, and opens a local result page in your browser (`127.0.0.1` only) with a
    **Copy JSON** button. A `ha_credentials.json` backup file is also written to the
    current folder.
-6. Paste that JSON into the Home Assistant configuration form — never anywhere else.
+7. Paste that JSON into the Home Assistant configuration form — never anywhere else.
 
 The script never prints `access_token`/`refresh_token`/`code` to the terminal — only a
 summary (number of devices found, how long the token stays valid). If no device is
