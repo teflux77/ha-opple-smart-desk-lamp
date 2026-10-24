@@ -171,166 +171,6 @@ class OppleLampCard extends HTMLElement {
         .opple-card .power-btn ha-icon {
           --mdc-icon-size: 20px;
         }
-
-        /* ---- Dialog (opened by tapping the tile) ---- */
-        /* A native <dialog> shown via showModal() is promoted to the
-           browser's "top layer" - a stacking level that sits above the
-           entire regular document, by specification, regardless of any
-           ancestor's position/transform/z-index/overflow. That sidesteps
-           custom themes (page-transition transforms on <body>/<html>,
-           blur/filter tricks, etc.) that broke a hand-rolled
-           position:fixed overlay. The backdrop itself is the browser's
-           native ::backdrop pseudo-element - also unaffected by theme CSS. */
-        dialog.dialog {
-          margin: auto;
-          width: 100%;
-          max-width: 360px;
-          max-height: 90vh;
-          overflow-y: auto;
-          background: var(--ha-dialog-surface-background, var(--mdc-theme-surface, var(--card-background-color, #1c1c1e)));
-          color: var(--primary-text-color, #e1e1e1);
-          border: none;
-          outline: none;
-          border-radius: var(--ha-dialog-border-radius, 28px);
-          box-shadow: var(--ha-dialog-box-shadow, 0 11px 15px -7px rgba(0, 0, 0, 0.2), 0 24px 38px 3px rgba(0, 0, 0, 0.14), 0 9px 46px 8px rgba(0, 0, 0, 0.12));
-          padding: 16px 16px 20px;
-          box-sizing: border-box;
-        }
-        dialog.dialog:focus,
-        dialog.dialog:focus-visible {
-          outline: none;
-        }
-        dialog.dialog::backdrop {
-          background: rgba(0, 0, 0, 0.32);
-          backdrop-filter: blur(2px);
-          -webkit-backdrop-filter: blur(2px);
-        }
-        .opple-card .dialog-topbar {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          margin-bottom: 14px;
-        }
-        .dialog-close {
-          width: 32px;
-          height: 32px;
-          border-radius: 50%;
-          border: none;
-          background: var(--secondary-background-color, #2c2c2e);
-          color: var(--primary-text-color, #e8e8e8);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-          flex-shrink: 0;
-        }
-        .opple-card .header {
-          text-align: left;
-          min-width: 0;
-        }
-        .opple-card .header-area {
-          font-size: 12.5px;
-          color: var(--secondary-text-color, #9a9a9a);
-          margin-bottom: 2px;
-        }
-        .opple-card .header-name {
-          font-size: 16px;
-          font-weight: 600;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-        .opple-card .row-card {
-          background: var(--secondary-background-color, #2c2c2e);
-          border-radius: 14px;
-          padding: 14px 16px;
-          margin-bottom: 10px;
-        }
-        .opple-card .status-row {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-        }
-        .opple-card .status-text {
-          font-size: 20px;
-          font-weight: 600;
-        }
-        .opple-card .mode-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(56px, 1fr));
-          gap: 10px;
-        }
-        .opple-card .mode-btn {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 6px;
-          background: none;
-          border: none;
-          color: var(--secondary-text-color, #b5b5b7);
-          cursor: pointer;
-          padding: 4px 0;
-        }
-        .opple-card .mode-btn .circle {
-          width: 48px;
-          height: 48px;
-          border-radius: 50%;
-          border: 1.5px solid var(--divider-color, #3a3a3c);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-        .opple-card .mode-btn.active .circle {
-          border-color: var(--primary-color, #3a7bd5);
-          background: rgba(var(--rgb-primary-color, 58, 123, 213), 0.15);
-        }
-        .opple-card .mode-btn.active {
-          color: var(--primary-text-color, #f2f2f2);
-        }
-        .opple-card .mode-btn span.label {
-          font-size: 11.5px;
-        }
-        .opple-card .brightness-row {
-          margin-top: 4px;
-        }
-        .opple-card .brightness-label {
-          display: flex;
-          justify-content: space-between;
-          font-size: 13px;
-          color: var(--secondary-text-color, #b5b5b7);
-          margin-bottom: 8px;
-        }
-        .opple-card input[type="range"] {
-          -webkit-appearance: none;
-          width: 100%;
-          height: 4px;
-          border-radius: 2px;
-          background: var(--divider-color, #3a3a3c);
-          outline: none;
-        }
-        .opple-card input[type="range"]::-webkit-slider-thumb {
-          -webkit-appearance: none;
-          width: 20px;
-          height: 20px;
-          border-radius: 50%;
-          background: var(--primary-color, #f2f2f2);
-          cursor: pointer;
-        }
-        .opple-card input[type="range"].warm-cool {
-          background: linear-gradient(to right, #ffb454, #fff4e0, #cfe8ff);
-        }
-        .opple-card .toggle-row {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 6px 0;
-        }
-        .opple-card .toggle-row + .toggle-row {
-          border-top: 1px solid var(--divider-color, #2c2c2e);
-        }
-        .opple-card .toggle-row .label {
-          font-size: 14px;
-        }
       </style>
       <ha-card class="opple-card">
         <div class="tile">
@@ -344,6 +184,196 @@ class OppleLampCard extends HTMLElement {
           </button>
         </div>
         <dialog class="dialog">
+          <style>
+            /* This <style> is a child of <dialog>, not of the card: the
+               dialog gets detached to <body> (see _build()) so it can use
+               the browser's native top layer, which means it leaves
+               whatever shadow root the card itself lives in (Home
+               Assistant renders custom cards inside one). A <style> only
+               ever applies within its OWN shadow tree, so the card's main
+               stylesheet above - still inside that shadow root - can never
+               reach the dialog once it's moved out. Keeping a dedicated
+               copy of the dialog's CSS attached to the dialog itself means
+               it always travels together with it, wherever it ends up in
+               the document. (No ".opple-card" ancestor prefix here either,
+               for the same reason: that ancestor no longer exists once the
+               dialog is detached.) */
+            dialog.dialog {
+              margin: auto;
+              width: 100%;
+              max-width: 360px;
+              max-height: 90vh;
+              overflow-y: auto;
+              background: var(--ha-dialog-surface-background, var(--mdc-theme-surface, var(--card-background-color, #1c1c1e)));
+              color: var(--primary-text-color, #e1e1e1);
+              border: none;
+              outline: none;
+              border-radius: var(--ha-dialog-border-radius, 28px);
+              box-shadow: var(--ha-dialog-box-shadow, 0 11px 15px -7px rgba(0, 0, 0, 0.2), 0 24px 38px 3px rgba(0, 0, 0, 0.14), 0 9px 46px 8px rgba(0, 0, 0, 0.12));
+              padding: 20px 20px 24px;
+              box-sizing: border-box;
+              font-family: var(--paper-font-body1_-_font-family, inherit);
+            }
+            dialog.dialog:focus,
+            dialog.dialog:focus-visible {
+              outline: none;
+            }
+            dialog.dialog::backdrop {
+              background: rgba(0, 0, 0, 0.32);
+              backdrop-filter: blur(2px);
+              -webkit-backdrop-filter: blur(2px);
+            }
+            .power-btn {
+              width: 40px;
+              height: 40px;
+              border-radius: 50%;
+              border: none;
+              background: var(--secondary-background-color, #2c2c2e);
+              color: var(--secondary-text-color, #9a9a9a);
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              cursor: pointer;
+              transition: background 0.15s, color 0.15s, transform 0.1s;
+              flex-shrink: 0;
+            }
+            .power-btn:active {
+              transform: scale(0.92);
+            }
+            .power-btn.on {
+              background: var(--primary-color, #3a7bd5);
+              color: var(--text-primary-color, #fff);
+            }
+            .power-btn ha-icon {
+              --mdc-icon-size: 20px;
+            }
+            .dialog-topbar {
+              display: flex;
+              align-items: center;
+              gap: 10px;
+              margin-bottom: 16px;
+            }
+            .dialog-close {
+              width: 32px;
+              height: 32px;
+              border-radius: 50%;
+              border: none;
+              background: var(--secondary-background-color, #2c2c2e);
+              color: var(--primary-text-color, #e8e8e8);
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              cursor: pointer;
+              flex-shrink: 0;
+            }
+            .header {
+              text-align: left;
+              min-width: 0;
+            }
+            .header-area {
+              font-size: 12.5px;
+              color: var(--secondary-text-color, #9a9a9a);
+              margin-bottom: 2px;
+            }
+            .header-name {
+              font-size: 16px;
+              font-weight: 600;
+              white-space: nowrap;
+              overflow: hidden;
+              text-overflow: ellipsis;
+            }
+            .row-card {
+              background: var(--secondary-background-color, #2c2c2e);
+              border-radius: 16px;
+              padding: 14px 16px;
+              margin-bottom: 10px;
+            }
+            .status-row {
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+            }
+            .status-text {
+              font-size: 20px;
+              font-weight: 600;
+            }
+            .mode-grid {
+              display: grid;
+              grid-template-columns: repeat(auto-fit, minmax(56px, 1fr));
+              gap: 10px;
+            }
+            .mode-btn {
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              gap: 6px;
+              background: none;
+              border: none;
+              color: var(--secondary-text-color, #b5b5b7);
+              cursor: pointer;
+              padding: 4px 0;
+            }
+            .mode-btn .circle {
+              width: 48px;
+              height: 48px;
+              border-radius: 50%;
+              border: 1.5px solid var(--divider-color, #3a3a3c);
+              display: flex;
+              align-items: center;
+              justify-content: center;
+            }
+            .mode-btn.active .circle {
+              border-color: var(--primary-color, #3a7bd5);
+              background: rgba(var(--rgb-primary-color, 58, 123, 213), 0.15);
+            }
+            .mode-btn.active {
+              color: var(--primary-text-color, #f2f2f2);
+            }
+            .mode-btn span.label {
+              font-size: 11.5px;
+            }
+            .brightness-row {
+              margin-top: 4px;
+            }
+            .brightness-label {
+              display: flex;
+              justify-content: space-between;
+              font-size: 13px;
+              color: var(--secondary-text-color, #b5b5b7);
+              margin-bottom: 8px;
+            }
+            input[type="range"] {
+              -webkit-appearance: none;
+              width: 100%;
+              height: 4px;
+              border-radius: 2px;
+              background: var(--divider-color, #3a3a3c);
+              outline: none;
+            }
+            input[type="range"]::-webkit-slider-thumb {
+              -webkit-appearance: none;
+              width: 20px;
+              height: 20px;
+              border-radius: 50%;
+              background: var(--primary-color, #f2f2f2);
+              cursor: pointer;
+            }
+            input[type="range"].warm-cool {
+              background: linear-gradient(to right, #ffb454, #fff4e0, #cfe8ff);
+            }
+            .toggle-row {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              padding: 6px 0;
+            }
+            .toggle-row + .toggle-row {
+              border-top: 1px solid var(--divider-color, #2c2c2e);
+            }
+            .toggle-row .label {
+              font-size: 14px;
+            }
+          </style>
           <div class="dialog-topbar">
             <button class="dialog-close" title="Close"><ha-icon icon="mdi:close"></ha-icon></button>
             <div class="header">
