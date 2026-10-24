@@ -23,15 +23,13 @@
  */
 
 const MODE_ICONS = {
-  mode_1: "mdi:help-circle-outline",
   reading: "mdi:book-open-page-variant-outline",
   writing: "mdi:pencil-outline",
   computer: "mdi:monitor",
-  mode_5: "mdi:help-circle-outline",
   custom: "mdi:tune-variant",
 };
 
-const MODE_ORDER = ["reading", "writing", "computer", "custom", "mode_1", "mode_5"];
+const MODE_ORDER = ["reading", "writing", "computer", "custom"];
 
 const LAMP_SVG = `
 <svg viewBox="0 0 220 160" class="lamp-art" aria-hidden="true">
@@ -185,6 +183,9 @@ class OppleLampCard extends HTMLElement {
           background: #f2f2f2;
           cursor: pointer;
         }
+        .opple-card input[type="range"].warm-cool {
+          background: linear-gradient(to right, #ffb454, #fff4e0, #cfe8ff);
+        }
         .opple-card .toggle-row {
           display: flex;
           justify-content: space-between;
@@ -217,6 +218,13 @@ class OppleLampCard extends HTMLElement {
           </div>
           <input type="range" min="1" max="100" step="1" class="brightness-slider" />
         </div>
+        <div class="row-card cct-row" style="display:none">
+          <div class="brightness-label">
+            <span>Color temperature</span>
+            <span class="cct-value"></span>
+          </div>
+          <input type="range" step="50" class="cct-slider warm-cool" />
+        </div>
         <div class="row-card extra-row" style="display:none"></div>
       </ha-card>
     `;
@@ -232,6 +240,12 @@ class OppleLampCard extends HTMLElement {
     );
     this.querySelector(".brightness-slider").addEventListener("input", (e) => {
       this.querySelector(".brightness-value").textContent = `${e.target.value}%`;
+    });
+    this.querySelector(".cct-slider").addEventListener("change", (e) =>
+      this._setColorTemp(Number(e.target.value))
+    );
+    this.querySelector(".cct-slider").addEventListener("input", (e) => {
+      this.querySelector(".cct-value").textContent = `${e.target.value} K`;
     });
   }
 
@@ -262,6 +276,24 @@ class OppleLampCard extends HTMLElement {
       this.querySelector(".brightness-value").textContent = `${pct}%`;
     } else {
       brightnessRow.style.display = "none";
+    }
+
+    // Color temperature
+    const cctRow = this.querySelector(".cct-row");
+    if (isOn && stateObj.attributes.color_temp_kelvin != null) {
+      cctRow.style.display = "";
+      const min = stateObj.attributes.min_color_temp_kelvin || 2700;
+      const max = stateObj.attributes.max_color_temp_kelvin || 5700;
+      const value = stateObj.attributes.color_temp_kelvin;
+      const slider = this.querySelector(".cct-slider");
+      slider.min = min;
+      slider.max = max;
+      if (document.activeElement !== slider) {
+        slider.value = value;
+      }
+      this.querySelector(".cct-value").textContent = `${value} K`;
+    } else {
+      cctRow.style.display = "none";
     }
 
     // Lighting mode row
@@ -353,6 +385,13 @@ class OppleLampCard extends HTMLElement {
     this._hass.callService("light", "turn_on", {
       entity_id: this._config.entity,
       brightness_pct: pct,
+    });
+  }
+
+  _setColorTemp(kelvin) {
+    this._hass.callService("light", "turn_on", {
+      entity_id: this._config.entity,
+      color_temp_kelvin: kelvin,
     });
   }
 

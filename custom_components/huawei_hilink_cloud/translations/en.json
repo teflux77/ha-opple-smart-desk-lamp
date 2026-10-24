@@ -32,9 +32,7 @@
           "reading": "Reading",
           "writing": "Writing",
           "computer": "Computer",
-          "custom": "Custom",
-          "mode_1": "Mode 1 (unconfirmed)",
-          "mode_5": "Mode 5 (unconfirmed)"
+          "custom": "Custom"
         }
       }
     }

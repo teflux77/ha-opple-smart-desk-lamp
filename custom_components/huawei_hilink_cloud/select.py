@@ -10,10 +10,10 @@ HiLink - Reverse engineering Home Assistant" for the full capture log):
     Custom   -> mode 6
 
 Modes 1 and 5 were never tapped during that capture (the numbering isn't
-contiguous - 1 and 5 are genuine gaps, not off-by-one). They're exposed as
-"Mode 1"/"Mode 5" placeholders so the select is still usable end-to-end;
-rename LIGHT_MODE_BY_OPTION (and the matching translations) once their real
-names are confirmed, same capture method, same lamp.
+contiguous - 1 and 5 are genuine gaps, not off-by-one) and were dropped from
+the select on purpose (2026-10-24, Stéphane) rather than kept as unconfirmed
+placeholders. If they turn out to matter later, same capture method, same
+lamp: re-add them to LIGHT_MODE_BY_OPTION (and the matching translations).
 
 Note: the "Side Lamp" button in the app does NOT go through lightMode at
 all - it toggles the `backlight` service ({"on": bool}), already covered by
@@ -38,11 +38,9 @@ from .const import DOMAIN, SERVICE_LIGHT_MODE, SIGNAL_DEVICE_UPDATE
 _LOGGER = logging.getLogger(__name__)
 
 LIGHT_MODE_BY_OPTION: dict[str, int] = {
-    "mode_1": 1,
     "reading": 2,
     "writing": 3,
     "computer": 4,
-    "mode_5": 5,
     "custom": 6,
 }
 OPTION_BY_LIGHT_MODE: dict[int, str] = {v: k for k, v in LIGHT_MODE_BY_OPTION.items()}
